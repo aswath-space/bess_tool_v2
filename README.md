@@ -10,7 +10,7 @@
 ## 🌟 Features
 
 - **PV Baseline Analysis**: Calculate solar generation revenue with cannibalization effects
-- **Battery Optimization**: Linear programming optimization for energy arbitrage
+- **Battery Optimization**: Mixed-Integer Linear programming (MILP) for accurate, physically realistic energy arbitrage
 - **Financial Analysis**: IRR, NPV, payback period with degradation modeling
 - **Real Market Data**: ENTSO-E electricity prices + PVGIS solar irradiation
 - **Data Export**: Download all analysis data as CSV + JSON in ZIP format
@@ -85,7 +85,7 @@ bess_tool_01-main/
 
 - **Frontend**: Streamlit
 - **Data**: ENTSO-E API, PVGIS API
-- **Optimization**: CVXPY (Linear Programming)
+- **Optimization**: CVXPY (Mixed-Integer Linear Programming via Highs/CBC)
 - **Visualization**: Plotly
 - **Financial Modeling**: numpy-financial
 

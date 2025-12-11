@@ -312,9 +312,9 @@ def render_battery_economics():
 
 
 def render_optimization_theory():
-    """Explain Linear Programming optimization approach."""
+    """Explain Mixed-Integer Linear Programming optimization approach."""
     
-    st.header("⚡ Optimization Method: Linear Programming")
+    st.header("⚡ Optimization Method: MILP")
     
     st.markdown("""
     ### Why Optimization Matters
@@ -323,8 +323,9 @@ def render_optimization_theory():
     - Thousands of decisions (charge/discharge every hour)
     - Interconnected constraints (energy balance, power limits)
     - Need to consider future prices (look-ahead optimization)
+    - **Physical Reality**: Batteries cannot charge and discharge simultaneously.
     
-    **Linear Programming (LP)** finds the mathematically optimal solution.
+    **Mixed-Integer Linear Programming (MILP)** finds the mathematically optimal solution while enforcing strict physical constraints.
     
     ---
     
@@ -332,62 +333,59 @@ def render_optimization_theory():
     
     #### Objective Function
     
-    **Maximize total revenue:**
+    **Maximize Net Profit (Revenue - Degradation):**
     
     ```
-    Maximize: Σ Price[t] × Grid_Power[t]
+    Maximize: Σ (Price[t] × Grid_Power[t]) - Σ (Throughput_Cost × (Charge[t] + Discharge[t]))
     ```
     
     Where:
     - `Price[t]` = Market price at hour t (€/MWh)
     - `Grid_Power[t]` = Net power to grid (MW)
-    - `Grid_Power[t]` = PV[t] + Discharge[t] - Charge[t]
+    - `Throughput_Cost` = Degradation penalty (e.g., €10/MWh) avoiding unnecessary cycling
     
     #### Decision Variables
     
     What the optimizer chooses:
     
-    - `Charge[t]` - Battery charging power at hour t (MW)
-    - `Discharge[t]` - Battery discharging power at hour t (MW)
-    - `SoC[t]` - State of charge at hour t (MWh)
-    - `Grid_Power[t]` - Net grid power at hour t (MW)
+    - `Charge[t]` (Continuous): Battery charging power (MW)
+    - `Discharge[t]` (Continuous): Battery discharging power (MW)
+    - `Is_Charging[t]` (Binary): 1 if charging, 0 otherwise
+    - `Is_Discharging[t]` (Binary): 1 if discharging, 0 otherwise
+    - `SoC[t]` (Continuous): State of charge (MWh)
     
     #### Constraints
     
     Physical and operational limits:
     
-    **1. Energy Balance:**
+    **1. Binary Logic (Mutually Exclusive):**
     st.latex(r'''
-    SoC_{t+1} = SoC_t + (\eta_{charge} \times P^{charge}_t) - \frac{P^{discharge}_t}{\eta_{discharge}}
+    Is\_Charging_t + Is\_Discharging_t \le 1
     ''')
-    st.caption("Where η = efficiency (typically √0.90 ≈ 0.95 one-way)")
+    st.caption("Ensures battery never charges and discharges at the same time.")
     
-    **2. State of Charge Limits:**
+    **2. Power Limits:**
     st.latex(r'''
-    0 \le SoC_t \le SoC_{max}
-    ''')
-    
-    **3. Power Limits:**
-    st.latex(r'''
-    0 \le P^{charge}_t \le P_{max}
+    0 \le Charge_t \le P_{max} \times Is\_Charging_t
     ''')
     st.latex(r'''
-    0 \le P^{discharge}_t \le P_{max}
+    0 \le Discharge_t \le P_{max} \times Is\_Discharging_t
     ''')
     
-    **4. Grid Power Balance:**
+    **3. Energy Balance:**
     st.latex(r'''
-    P^{grid}_t = P^{PV}_t + P^{discharge}_t - P^{charge}_t
+    SoC_{t+1} = SoC_t + (\eta \times Charge_t) - \frac{Discharge_t}{\eta}
     ''')
     
-    **5. Initial Condition:**
+    **4. State of Charge Limits:**
     st.latex(r'''
-    SoC_0 = 0
+    SoC_{min} \le SoC_t \le SoC_{max}
     ''')
+    st.caption("We enforce a minimum reserve (e.g., 5%) to protect battery health.")
     
     ---
     
-    ### Why LP is Superior to Heuristics
+    ### Why MILP is Superior
     
     """)
     
@@ -395,45 +393,31 @@ def render_optimization_theory():
     
     with col1:
         st.markdown("""
-        #### ❌ Heuristic Rules (Simple)
-        
-        **Approach:**
-        - "Charge when price < €30/MWh"
-        - "Discharge when price > €100/MWh"
+        #### ❌ Heuristic Rules / Simple LP
         
         **Problems:**
-        - Arbitrary thresholds
-        - No look-ahead capability
-        - Misses opportunities
-        - Suboptimal timing
-        - Doesn't adapt to price patterns
+        - **Simultaneous Flow:** Simple LP can charge/discharge at same time to exploit math artifacts
+        - **Arbitrary Thresholds:** Heuristics miss complex opportunities
+        - **Unrealistic Cycling:** Ignores degradation costs
         
         **Result:**
-        - 20-40% less revenue
-        - Inefficient battery utilization
-        - Can't prove optimality
+        - Physically impossible schedules
+        - Inflated revenue estimates
         """)
     
     with col2:
         st.markdown("""
-        #### ✅ Linear Programming (Optimal)
-        
-        **Approach:**
-        - Mathematical optimization
-        - Considers all hours simultaneously
-        - Finds global optimum
+        #### ✅ Rigorous MILP (Optimal)
         
         **Advantages:**
-        - Provably optimal solution
-        - Look-ahead optimization
-        - Captures all arbitrage opportunities
-        - Adaptive to price patterns
-        - Maximizes battery value
+        - **Strict Physics:** Binary variables enforce realistic behavior
+        - **Degradation Aware:** Penalizes unnecessary cycles
+        - **Global Optimum:** Finds best possible schedule
+        - **Look-Ahead:** Optimizes for future prices
         
         **Result:**
-        - Maximum possible revenue
-        - Optimal capacity utilization
-        - Proof of optimality
+        - Accurate, bankable revenue projections
+        - Realistic operations profile
         """)
     
     st.markdown("""

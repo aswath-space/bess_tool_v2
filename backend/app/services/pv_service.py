@@ -1,93 +1,139 @@
-import requests
 import pandas as pd
+import openmeteo_requests
+import requests_cache
+import retry_requests
+import pvlib
 from fastapi import HTTPException
+from datetime import datetime
 
 class PVService:
-    BASE_URL = "https://re.jrc.ec.europa.eu/api/v5_2/PVcalc"
+    def __init__(self):
+        # Setup Open-Meteo client with cache and retry
+        cache_session = requests_cache.CachedSession('.cache', expire_after=3600)
+        retry_session = retry_requests.retry(cache_session, retries=5, backoff_factor=0.2)
+        self.client = openmeteo_requests.Client(session=retry_session)
 
-    @staticmethod
-    def fetch_pv_generation(lat: float, lon: float, peak_power_kw: float, loss: float, tilt: float, azimuth: float) -> pd.DataFrame:
+    def fetch_pv_generation(self, lat: float, lon: float, peak_power_kw: float, loss: float, tilt: float, azimuth: float, year: int = 2023) -> pd.DataFrame:
         """
-        Fetches hourly PV generation data from PVGIS.
-        Returns a DataFrame with 'timestamp' and 'pv_power_kw'.
+        Fetches hourly weather data from Open-Meteo (ERA5) and calculates PV output using pvlib.
+        Returns a DataFrame with UTC-localized index and 'pv_power_kw'.
         """
-        params = {
-            'lat': lat,
-            'lon': lon,
-            'peakpower': peak_power_kw,
-            'loss': loss,
-            'mountingplace': 'building',
-            'angle': tilt,
-            'aspect': azimuth,
-            'outputformat': 'json'
-        }
-
         try:
-            response = requests.get(PVService.BASE_URL, params=params, timeout=10)
-            response.raise_for_status()
-            data = response.json()
+            # 1. Fetch Weather Data (Open-Meteo)
+            url = "https://archive-api.open-meteo.com/v1/archive"
             
-            # PVGIS returns "monthly" and "daily" averages usually, but for hourly we need 'series calc' 
-            # Wait, the reference code used "PVcalc" but that returns monthly averages by default unless we ask for hourly?
-            # The reference code logic:
-            # monthly_data = data['outputs']['monthly']['fixed']
-            # It was just plotting monthly bars.
-            # ERROR in PRD vs Reference: PRD wants "Hourly" simulation (8760 points). 
-            # PVGIS 'PVcalc' endpoint gives monthly/daily. 'seriescalc' gives hourly.
-            # However, for this MVP "Digital Twin", I need 8760 hours to do arbitrage.
-            # I must use the "seriescalc" endpoint or similar to get hourly data. 
-            # Let's check the reference code again... it definitely used 'PVcalc' and got monthly data.
-            # "monthly_data = data['outputs']['monthly']['fixed']"
+            # Open-Meteo uses South=0, PVGIS uses South=0. Wait.
+            # PVGIS: 0=South, -90=East, 90=West.
+            # PVLib: 180=South, 90=East, 270=West. (Standard convention)
+            # Correction: PVLib default is 180=South.
+            # User input `pv_azimuth`... standard is usually 180=South. 
+            # If user inputs 0 for South (common in Europe), we might need to map.
+            # Convention check: PRD says "0° (South)". 
+            # So if user provides 0, it means South.
+            # PVLib expects South=180.
+            # Mapping: pvlib_azimuth = input_azimuth + 180.
             
-            # IMPROVEMENT: I will try to use the 'seriescalc' endpoint to get hourly data if possible, 
-            # or if I stick to the plan I should perhaps mimic the reference first? 
-            # No, the user wants "aligned to PRD". PRD says "8,760-hour generation simulation".
-            # So I MUST fetch hourly data.
-            pass
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"PVGIS API Error: {str(e)}")
+            pvlib_azimuth = azimuth + 180
+            
+            params = {
+                "latitude": lat,
+                "longitude": lon,
+                "start_date": f"{year}-01-01",
+                "end_date": f"{year}-12-31",
+                "hourly": ["shortwave_radiation", "direct_normal_irradiance", "diffuse_radiation", "temperature_2m"],
+                "timeformat": "unixtime"
+            }
+            
+            print(f"📡 Fetching Open-Meteo data for {year} at {lat}, {lon}...")
+            responses = self.client.weather_api(url, params=params)
+            response = responses[0]
+            
+            # Process hourly data
+            hourly = response.Hourly()
+            
+            # Construct time range
+            start = pd.to_datetime(hourly.Time(), unit="s", utc=True)
+            end = pd.to_datetime(hourly.TimeEnd(), unit="s", utc=True)
+            interval_seconds = hourly.Interval()
+            date_range = pd.date_range(start, end, freq=pd.Timedelta(seconds=interval_seconds), inclusive="left")
+            
+            # Create DataFrame
+            hourly_data = {
+                "date": date_range,
+                "ghi": hourly.Variables(0).ValuesAsNumpy(),
+                "dni": hourly.Variables(1).ValuesAsNumpy(),
+                "dhi": hourly.Variables(2).ValuesAsNumpy(),
+                "temp_air": hourly.Variables(3).ValuesAsNumpy()
+            }
+            
+            weather_df = pd.DataFrame(data=hourly_data)
+            weather_df.set_index("date", inplace=True)
+            
+            # 2. Physics Simulation (PVLib)
+            location = pvlib.location.Location(lat, lon, tz='UTC')
+            
+            # Calculate Solar Position
+            solpos = location.get_solarposition(weather_df.index)
+            
+            # Calculate POA (Plane of Array) Irradiance
+            # Use isotropic model for simplicity, or Hay-Davies
+            poa_irradiance = pvlib.irradiance.get_total_irradiance(
+                surface_tilt=tilt,
+                surface_azimuth=pvlib_azimuth,
+                dni=weather_df['dni'],
+                ghi=weather_df['ghi'],
+                dhi=weather_df['dhi'],
+                solar_zenith=solpos['zenith'],
+                solar_azimuth=solpos['azimuth']
+            )
+            
+            # Calculate Cell Temperature (using NOCT model or Faiman)
+            # Simplified: Cell Temp = Air Temp + (POA * exp / 1000)
+            # Using PVWatts model approach implicitly via simple efficiency or manual temp correction
+            # Let's use standard PVWatts temperature model
+            # Standard parameters for "open rack glass-glass"
+            temperature_model_parameters = pvlib.temperature.TEMPERATURE_MODEL_PARAMETERS['sapm']['open_rack_glass_glass']
+            cell_temperature = pvlib.temperature.sapm_cell(
+                poa_global=poa_irradiance['poa_global'],
+                temp_air=weather_df['temp_air'],
+                wind_speed=1.0, # Assumed 1 m/s if not fetched
+                **temperature_model_parameters
+            )
+            
+            # Calculate DC Power (PVWatts model)
+            # peak_power_kw -> nameplate_dc (watts)
+            # loss -> total system loss % (so 14% -> 0.86 efficiency factor effectively, but PVWatts has specific loss params)
+            # PVWatts `system_loss` parameter expects fraction? No, percent.
+            # `gamma_pdc`: Temp coeff of power. -0.004 is roughly -0.4%/C (standard Silicon)
+            
+            dc_power = pvlib.pvsystem.pvwatts_dc(
+                g_poa_effective=poa_irradiance['poa_global'],
+                temp_cell=cell_temperature,
+                pdc0=peak_power_kw * 1000, # Watts
+                gamma_pdc=-0.004,
+                temp_ref=25.0
+            ) 
+            
+            # Apply System Losses (Inverter, wiring, soiling, availability)
+            # User provided `loss` (e.g. 14%). 
+            # dc_power is theoretical DC. output = dc * (1 - loss/100)
+            ac_power_watts = dc_power * (1 - loss / 100.0)
+            
+            # Handle negative values (night)
+            ac_power_watts = ac_power_watts.clip(lower=0)
+            
+            # Return result
+            result_df = pd.DataFrame({'pv_power_kw': ac_power_watts / 1000.0}) # Convert to kW
+            
+            # Resample to hourly mean (Open-Meteo is hour-ending or hour-starting? It returns point timestamps)
+            # Usually :00.
+            result_df = result_df.resample('h').mean().fillna(0)
+            
+            return result_df
 
-        # Redoing the URL for hourly data
-        # endpoint: /seriescalc
-        # params need 'startyear', 'endyear' usually.
-        
-        # Let's stick effectively to what's reliable. 
-        # Actually, let's use the simplest approach: Call PVGIS `seriescalc` for a recent year.
-        
-        url = "https://re.jrc.ec.europa.eu/api/v5_2/seriescalc"
-        params['startyear'] = 2020 # Use a fixed recent year for simulation
-        params['endyear'] = 2020
-        params['pvcalculation'] = 1 
-        # peakpower, loss, mountingplace, angle, aspect are same.
-        
-        try:
-            response = requests.get(url, params=params, timeout=15)
-            response.raise_for_status()
-            data = response.json()
-            
-            hourly_data = data['outputs']['hourly']
-            
-            # Parse into DataFrame
-            # Format: {"time": "20200101:0010", "P": 0.0, ...}
-            # 'P' is power in W.
-            
-            records = []
-            for entry in hourly_data:
-                # time format is YYYYMMDD:HHmm
-                time_str = entry['time']
-                power_w = entry['P']
-                
-                # Convert to timestamp (simplified)
-                # We'll just generate an index from 0 to 8784 (leap year)
-                records.append(power_w / 1000.0) # Convert to kW
-                
-            # Create a generic 8760 (or 8784) index
-            # Ideally we align this with the price data year.
-            # For this MVP, we will just return a list of values.
-            
-            return pd.DataFrame({'pv_power_kw': records})
-            
         except Exception as e:
-             raise HTTPException(status_code=500, detail=f"PVGIS Hourly API Error: {str(e)}")
+            # Fallback or Error
+            print(f"Open-Meteo Error: {e}")
+            raise HTTPException(status_code=500, detail=f"Open-Meteo/PVLib Simulation Error: {str(e)}")
 
 pv_service = PVService()

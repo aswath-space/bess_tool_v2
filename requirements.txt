@@ -12,6 +12,11 @@ geopy
 numpy
 numpy-financial
 cvxpy
+highspy
+pvlib>=0.11.0
+openmeteo-requests
+requests-cache
+retry_requests
 
 # Configuration
 python-dotenv

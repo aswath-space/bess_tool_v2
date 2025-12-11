@@ -84,243 +84,198 @@ class OptimizationService:
         pv_df: pd.DataFrame,
         price_data: list,
         bess_power_mw: float,
-        bess_capacity_mwh: float
+        bess_capacity_mwh: float,
+        min_soc_percent: float = 0.05,
+        throughput_cost_eur_mwh: float = 10.0
     ):
         """
-        Run LP optimization for battery dispatch.
+        Run MILP optimization for battery dispatch.
         
-        This is the core revenue optimization that shows the VALUE of adding
-        battery storage to a PV plant.
+        Uses Mixed-Integer Linear Programming to strict prevent simultaneous 
+        charging and discharging, and includes degradation penalties.
         
         Parameters:
         -----------
         pv_df : pd.DataFrame
             Hourly PV generation data with column 'pv_power_kw'
-            
         price_data : list of dict
             Hourly prices with key 'price' (EUR/MWh)
-            
         bess_power_mw : float
-            Battery power rating (MW) - how fast it can charge/discharge
-            
+            Battery power rating (MW)
         bess_capacity_mwh : float
-            Battery energy capacity (MWh) - how much energy it can store
+            Battery energy capacity (MWh)
+        min_soc_percent : float
+            Minimum energy reserve as fraction of capacity (default 0.05 = 5%)
+        throughput_cost_eur_mwh : float
+            Degradation cost per MWh of throughput (charge + discharge) (default 10 EUR/MWh)
             
         Returns:
         --------
         dict
-            Optimization results containing:
-            - financials: Revenue metrics and statistics
-            - hourly_data: Hour-by-hour breakdown for charts
-            - value_breakdown: Revenue sources (baseline, arbitrage, etc.)
-            
-        Raises:
-        -------
-        ValueError
-            If optimization fails to find a solution
+            Optimization results
         """
         
         # ===================================================================
         # STEP 1: Prepare Data
         # ===================================================================
-        # Ensure we have matching data lengths
         T = min(len(pv_df), len(price_data))
-        
-        # Create working DataFrame
         df = pv_df.iloc[:T].copy()
         
-        # Extract prices from list of dicts
         prices_eur_mwh = np.array([p['price'] for p in price_data[:T]])
         df['price_eur_mwh'] = prices_eur_mwh
         
-        # Convert PV generation to MW (from kW)
         pv_generation_mw = df['pv_power_kw'].values / 1000  # Shape: (T,)
         
         # ===================================================================
-        # STEP 2: Define Decision Variables
+        # STEP 2: Define Decision Variables (MILP)
         # ===================================================================
-        # These are the variables that CVXPY will optimize
         
-        # Battery charging power at each hour (MW)
-        # Non-negative constraint means: can only charge, not discharge
+        # Continuous variables
         p_charge = cp.Variable(T, nonneg=True, name='p_charge')
-        
-        # Battery discharging power at each hour (MW)
-        # Non-negative constraint means: can only discharge, not charge
         p_discharge = cp.Variable(T, nonneg=True, name='p_discharge')
-        
-        # State of charge at each hour (MWh)
-        # We have T+1 points: start of hour 0, 1, 2, ..., T
-        # Non-negative constraint means: can't have negative energy stored
         soc = cp.Variable(T + 1, nonneg=True, name='soc')
-        
-        # Net grid power (MW): positive = export, negative = import
-        # This is what we sell to (or buy from) the grid
         p_grid = cp.Variable(T, name='p_grid')
+        
+        # Binary variables for charging/discharging state
+        # 1 if charging/discharging, 0 otherwise
+        is_charging = cp.Variable(T, boolean=True, name='is_charging')
+        is_discharging = cp.Variable(T, boolean=True, name='is_discharging')
         
         # ===================================================================
         # STEP 3: Define Parameters
         # ===================================================================
-        # Round-trip efficiency (typical for Li-ion batteries: 85-92%)
-        # This means: Store 1 MWh, get 0.9 MWh back
         efficiency = 0.90
+        min_soc_mwh = bess_capacity_mwh * min_soc_percent
         
         # ===================================================================
         # STEP 4: Define Constraints
         # ===================================================================
         constraints = []
         
-        # CONSTRAINT 1: Initial State of Charge
-        # Battery starts empty (conservative assumption)
-        # Could also optimize starting SoC, but this is simpler
-        constraints.append(soc[0] == 0)
+        # 4.1 Initial Condition
+        constraints.append(soc[0] == min_soc_mwh) # Start at min SOC (conservative)
         
-        # CONSTRAINT 2: Energy Balance (State of Charge Dynamics)
-        # This is the core battery physics constraint
-        # Energy stored in next hour = Energy now + Charging - Discharging
-        # With efficiency losses accounted for:
-        # - When charging: η * power goes into storage  
-        # - When discharging: power / η comes out of storage
+        # 4.2 Energy Balance
         for t in range(T):
             constraints.append(
                 soc[t + 1] == soc[t] + efficiency * p_charge[t] - p_discharge[t] / efficiency
             )
         
-        # CONSTRAINT 3: State of Charge Limits
-        # Battery can't store more than its rated capacity
-        # Already have soc >= 0 from variable definition
+        # 4.3 SoC Limits
+        constraints.append(soc >= min_soc_mwh)
         constraints.append(soc <= bess_capacity_mwh)
         
-        # CONSTRAINT 4: Charging Power Limits
-        # Can't charge faster than the inverter/power electronics allow
-        constraints.append(p_charge <= bess_power_mw)
+        # 4.4 Mutually Exclusive Charge/Discharge (The "Big-M" constraints)
+        # We use the binary variables to enforce:
+        # if is_charging[t] == 1, then p_discharge[t] MUST be 0
+        # if is_discharging[t] == 1, then p_charge[t] MUST be 0
         
-        # CONSTRAINT 5: Discharging Power Limits  
-        # Can't discharge faster than the inverter/power electronics allow
-        constraints.append(p_discharge <= bess_power_mw)
+        # Logical constraint: Cannot be charging AND discharging at same time
+        constraints.append(is_charging + is_discharging <= 1)
         
-        # CONSTRAINT 6: Grid Power Balance
-        # What goes to grid = PV generation + Battery discharge - Battery charge
-        # Positive p_grid = we're selling (exporting)
-        # Negative p_grid = we're buying (importing)
+        # Coupling constraints linking continuous power to binary state
+        # p_charge[t] <= P_max * is_charging[t]
+        # If is_charging is 0, p_charge must be 0. If 1, p_charge can be up to P_max.
+        constraints.append(p_charge <= bess_power_mw * is_charging)
+        constraints.append(p_discharge <= bess_power_mw * is_discharging)
+        
+        # 4.5 Grid Balance
         for t in range(T):
             constraints.append(
                 p_grid[t] == pv_generation_mw[t] + p_discharge[t] - p_charge[t]
             )
-        
-        # OPTIONAL CONSTRAINT: Can't charge from grid
-        # Uncomment this if you want to prohibit grid charging
-        # (only allow charging from excess PV)
-        # for t in range(T):
-        #     constraints.append(p_charge[t] <= pv_generation_mw[t])
-        
+            
         # ===================================================================
         # STEP 5: Define Objective Function
         # ===================================================================
-        # We want to MAXIMIZE revenue
-        # Revenue = Σ (price[t] × grid_power[t])
-        # 
-        # When grid_power > 0: We export and earn money (price × power)
-        # When grid_power < 0: We import and pay money (price × power is negative)
-        #
-        # CVXPY minimizes by default, so we use negative to maximize
-        revenue = prices_eur_mwh @ p_grid  # Matrix multiplication: Σ price[t] * p_grid[t]
+        # Maximize: Market Revenue - Throughput Cost (Degradation)
         
-        objective = cp.Maximize(revenue)
+        market_revenue = prices_eur_mwh @ p_grid
+        
+        # Throughput cost applies to both charging and discharging
+        # total_throughput = sum(p_charge) + sum(p_discharge)
+        # We subtract this cost from revenue
+        degradation_penalty = throughput_cost_eur_mwh * (cp.sum(p_charge) + cp.sum(p_discharge))
+        
+        total_profit = market_revenue - degradation_penalty
+        
+        objective = cp.Maximize(total_profit)
         
         # ===================================================================
-        # STEP 6: Solve the Optimization Problem
+        # STEP 6: Solve (MILP)
         # ===================================================================
-        # Create the problem
         problem = cp.Problem(objective, constraints)
         
-        # Solve using CLARABEL solver (comes with CVXPY)
-        # Other solvers: ECOS, SCS, OSQP
-        # We use verbose=False to suppress solver output
         try:
-            problem.solve(verbose=False)
+            # Use HIGHS solver for MILP if available, otherwise CBC or SCIP
+            # CVXPY should pick the best installed MILP solver automatically if we don't specify,
+            # but specifying helps debugging.
+            
+            solver_opts = {'verbose': False}
+            if 'HIGHS' in cp.installed_solvers():
+                problem.solve(solver=cp.HIGHS, **solver_opts)
+            elif 'CBC' in cp.installed_solvers():
+                problem.solve(solver=cp.CBC, **solver_opts)
+            else:
+                 # Fallback to default (likely GLPK_MI if installed, or error)
+                 print("Warning: No specific MILP solver found (HIGHS/CBC). Letting CVXPY choose.")
+                 problem.solve(**solver_opts)
+                 
         except Exception as e:
             raise ValueError(f"Optimization failed: {str(e)}")
         
-        # Check if solver found optimal solution
-        if problem.status != cp.OPTIMAL:
-            raise ValueError(
-                f"Optimization did not converge. Status: {problem.status}. "
-                f"This may indicate infeasible constraints or numerical issues."
-            )
+        if problem.status not in [cp.OPTIMAL, cp.OPTIMAL_INACCURATE]:
+             raise ValueError(f"Optimization failed with status: {problem.status}")
+             
+        # ===================================================================
+        # STEP 7: Extract Results
+        # ===================================================================
+        optimal_p_charge = p_charge.value
+        optimal_p_discharge = p_discharge.value
+        optimal_soc = soc.value[:-1]
+        optimal_p_grid = p_grid.value
+        
+        # Recalculate financial metrics (Revenue without penalty for display)
+        # We want to show the user the pure market revenue, and perhaps show degradation as a cost line item
+        realized_revenue = np.sum(prices_eur_mwh * optimal_p_grid)
         
         # ===================================================================
-        # STEP 7: Extract Optimal Solution
+        # STEP 8: Store Results
         # ===================================================================
-        # Get the optimal values of decision variables
-        # .value returns numpy array
-        optimal_p_charge = p_charge.value  # (T,)
-        optimal_p_discharge = p_discharge.value  # (T,)
-        optimal_soc = soc.value[:-1]  # (T,) - exclude final SoC
-        optimal_p_grid = p_grid.value  # (T,)
-        optimal_revenue = problem.value  # Total revenue (EUR)
-        
-        # ===================================================================
-        # STEP 8: Store Results in DataFrame
-        # ===================================================================
-        # Convert back to kW for consistency with input
-        df['bess_charge_kw'] = optimal_p_charge * 1000  # MW to kW
-        df['bess_discharge_kw'] = optimal_p_discharge * 1000  # MW to kW
-        
-        # Net battery flow: positive = discharge, negative = charge
-        # This matches the convention in the original code
+        df['bess_charge_kw'] = optimal_p_charge * 1000
+        df['bess_discharge_kw'] = optimal_p_discharge * 1000
         df['bess_flow_kw'] = df['bess_discharge_kw'] - df['bess_charge_kw']
+        df['soc_kwh'] = optimal_soc * 1000
+        df['net_grid_kw'] = optimal_p_grid * 1000
         
-        # State of charge
-        df['soc_kwh'] = optimal_soc * 1000  # MWh to kWh
-        
-        # Net grid power  
-        df['net_grid_kw'] = optimal_p_grid * 1000  # MW to kW
-        
-        # ===================================================================
-        # STEP 9: Calculate Revenue Components
-        # ===================================================================
-        # Break down revenue into different sources for the "value bridge"
-        
-        # Revenue when we export (positive grid power)
+        # Revenue calculation
         df['revenue_from_export'] = df.apply(
             lambda x: (x['net_grid_kw'] / 1000) * x['price_eur_mwh'] if x['net_grid_kw'] > 0 else 0,
             axis=1
         )
-        
-        # Cost when we import (negative grid power)
         df['cost_from_import'] = df.apply(
             lambda x: abs(x['net_grid_kw'] / 1000) * x['price_eur_mwh'] if x['net_grid_kw'] < 0 else 0,
             axis=1
         )
-        
-        # Net revenue (export revenue minus import cost)
         df['net_revenue'] = df['revenue_from_export'] - df['cost_from_import']
         
-        # ===================================================================
-        # STEP 10: Calculate Performance Metrics
-        # ===================================================================
-        # Total revenue
+        # Financial Tally
         total_revenue = df['net_revenue'].sum()
+        total_throughput_mwh = (df['bess_charge_kw'].sum() + df['bess_discharge_kw'].sum()) / 1000
+        total_degradation_cost = total_throughput_mwh * throughput_cost_eur_mwh
         
-        # PV generation totals
+        net_profit = total_revenue - total_degradation_cost
+        
+        # Metrics
         total_pv_generation_mwh = df['pv_power_kw'].sum() / 1000
-        
-        # Battery cycling
-        # Full cycle = Discharge capacity equal to nameplate  
-        # Example: 16 MWh battery, 32 MWh discharged = 2 cycles
         total_discharge_mwh = df['bess_discharge_kw'].sum() / 1000
         annual_cycles = total_discharge_mwh / bess_capacity_mwh if bess_capacity_mwh > 0 else 0
         
-        # Battery utilization (how often we use it)
-        hours_charging = (df['bess_charge_kw'] > 0.1).sum()  # > 0.1 kW to avoid numerical noise
+        hours_charging = (df['bess_charge_kw'] > 0.1).sum()
         hours_discharging = (df['bess_discharge_kw'] > 0.1).sum()
-        total_hours_active = hours_charging + hours_discharging
-        utilization_percent = (total_hours_active / len(df)) * 100
+        utilization_percent = ((hours_charging + hours_discharging) / len(df)) * 100
         
-        # Arbitrage-specific metrics
-        # When do we charge? When prices are < average
-        avg_price = df['price_eur_mwh'].mean()
+        # Arbitrage
         df['is_charging_hour'] = df['bess_charge_kw'] > 0.1
         df['is_discharging_hour'] = df['bess_discharge_kw'] > 0.1
         
@@ -328,88 +283,61 @@ class OptimizationService:
         avg_discharging_price = df[df['is_discharging_hour']]['price_eur_mwh'].mean() if hours_discharging > 0 else 0
         price_spread = avg_discharging_price - avg_charging_price
         
-        # Negative price handling
+        # Negative prices
         negative_price_hours = (df['price_eur_mwh'] < 0).sum()
         if negative_price_hours > 0:
-            # Energy that would have been curtailed or sold at negative price
-            potential_curtailment_kwh = df[df['price_eur_mwh'] < 0]['pv_power_kw'].sum()
-            # How much did we actually charge during negative prices?
-            actual_charge_during_neg_price = df[df['price_eur_mwh'] < 0]['bess_charge_kw'].sum()
+             potential_curtailment_kwh = df[df['price_eur_mwh'] < 0]['pv_power_kw'].sum()
+             actual_charge_during_neg_price = df[df['price_eur_mwh'] < 0]['bess_charge_kw'].sum()
         else:
-            potential_curtailment_kwh = 0
-            actual_charge_during_neg_price = 0
-        
-        # ===================================================================
-        # STEP 11: Calculate Value Breakdown (for Waterfall Chart)
-        # ===================================================================
-        # This is used in the "value bridge" visualization
-        # We want to show: Base PV Revenue + Arbitrage + Neg Price + Curtailment
-        #
-        # Note: To calculate this properly, we need the PV baseline revenue
-        # which should be passed in. For now, we estimate components.
-        
-        # Arbitrage revenue estimate:
-        # Revenue from price spread × Energy cycled
-        arbitrage_revenue_estimate = (
-            price_spread * total_discharge_mwh if price_spread > 0 else 0
+             potential_curtailment_kwh = 0
+             actual_charge_during_neg_price = 0
+             
+        # Estimated Arbitrage Revenue
+        # (Discharge Energy * Discharge Price) - (Charge Energy * Charge Price)
+        # Accurate calculation based on actual flows
+        arbitrage_revenue_exact = (
+            (df[df['is_discharging_hour']]['bess_discharge_kw']/1000 * df[df['is_discharging_hour']]['price_eur_mwh']).sum() -
+            (df[df['is_charging_hour']]['bess_charge_kw']/1000 * df[df['is_charging_hour']]['price_eur_mwh']).sum()
         )
-        
-        # Negative price savings estimate:
-        # Energy charged during negative prices × average negative price
-        if negative_price_hours > 0:
-            avg_negative_price = df[df['price_eur_mwh'] < 0]['price_eur_mwh'].mean()
-            negative_price_savings = abs(
-                (actual_charge_during_neg_price / 1000) * avg_negative_price
-            )
-        else:
-            negative_price_savings = 0
-        
-        # ===================================================================
-        # RETURN RESULTS
-        # ===================================================================
+             
         return {
-            # Financial Summary
             "financials": {
                 "total_revenue_eur": round(total_revenue, 2),
+                "total_degradation_cost_eur": round(total_degradation_cost, 2),
+                "net_profit_eur": round(net_profit, 2), # Revenue - Degradation
                 "annual_pv_production_mwh": round(total_pv_generation_mwh, 2),
                 "annual_cycles": round(annual_cycles, 1),
                 "battery_utilization_percent": round(utilization_percent, 1),
                 "hours_charging": int(hours_charging),
                 "hours_discharging": int(hours_discharging),
             },
-            
-            # Arbitrage Metrics
             "arbitrage": {
                 "avg_charging_price": round(avg_charging_price, 2),
                 "avg_discharging_price": round(avg_discharging_price, 2),
                 "price_spread": round(price_spread, 2),
-                "estimated_arbitrage_revenue": round(arbitrage_revenue_estimate, 2),
+                "estimated_arbitrage_revenue": round(arbitrage_revenue_exact, 2),
             },
-            
-            # Negative Price Impact
             "negative_prices": {
                 "negative_price_hours": int(negative_price_hours),
                 "potential_curtailment_kwh": round(potential_curtailment_kwh, 2),
                 "energy_charged_during_neg_prices_kwh": round(actual_charge_during_neg_price, 2),
-                "estimated_savings": round(negative_price_savings, 2),
+                # Calculate savings: Sum of (Charge * -Price) for negative price hours
+                # In our revenue calculation, Cost = Grid_Import * Price. If Price < 0, Cost < 0 (Gain).
+                # So Savings = - (Sum of Cost when Price < 0 and Grid < 0)
+                # Simplified: Sum of abs(Price) * Charge_MWh
+                "estimated_savings": round(
+                    abs(
+                        (df[df['price_eur_mwh'] < 0]['bess_charge_kw']/1000 * df[df['price_eur_mwh'] < 0]['price_eur_mwh']).sum()
+                    ), 2
+                ),
             },
-            
-            # Value Breakdown (for waterfall chart)
-            # Note: Base PV revenue would ideally come from baseline service
             "value_breakdown": {
-                "arbitrage_gain": round(arbitrage_revenue_estimate, 2),
-                "negative_price_savings": round(negative_price_savings, 2),
-                # Curtailment and base revenue need baseline comparison
-                # Will be calculated in UI by comparing to baseline result
+                "arbitrage_gain": round(arbitrage_revenue_exact, 2),
+                # Degradation is a cost, effectively reducing gain
+                "degradation_loss": round(total_degradation_cost, 2), 
             },
-            
-            # Hourly Data (first week for visualization)
-            "hourly_data": df.head(168).to_dict(orient='records'),  # 168 hours = 7 days
-            
-            # Full year data (for advanced analysis)
+            "hourly_data": df.head(168).to_dict(orient='records'),
             "full_year_df": df,
-            
-            # Optimization metadata
             "optimization_status": problem.status,
             "solver_time_seconds": problem.solver_stats.solve_time if problem.solver_stats else None,
         }

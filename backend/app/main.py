@@ -37,6 +37,9 @@ class ProjectConfig(BaseModel):
     bess_capacity_mwh: float
     bess_power_mw: float
     loss_factor: float = 14.0
+    # Optimization parameters (optional with defaults)
+    min_soc_percent: float = 0.05
+    throughput_cost_eur_mwh: float = 10.0
 
 @app.get("/")
 def read_root():
@@ -96,16 +99,26 @@ def run_optimization(config: ProjectConfig):
         end = pd.Timestamp.now(tz='UTC').normalize()
         start = end - pd.Timedelta(days=365)
         
+        # Determine strict simulation year based on the price data start
+        # e.g. if start is 2023-12-11, we span 2023-2024. 
+        # PVGIS seriescalc needs a single year usually, or we can stitch.
+        # But seriescalc usually allows spanning? No, it takes startyear and endyear.
+        # Ideally, we pick the "dominant" year or just pass the start year.
+        # Let's use the start year of our price data.
+        simulation_year = start.year
+        
         zone = entsoe_service.get_zone_from_lat_lon(config.lat, config.lon)
         if not zone:
              # Fallback
              zone = "DE_LU" # Assume German zone if mapping fails? Or error.
+             print("Warning: Could not determine zone. Falling back to DE_LU.")
              
         prices_df = entsoe_service.fetch_day_ahead_prices(zone, start, end)
+        
         # Convert to list of dicts for service
         price_data = prices_df.reset_index().rename(columns={'index': 'timestamp', 'price': 'price'}).to_dict(orient='records')
         
-        # 2. Fetch PV Data (Hourly simulation for 1 year)
+        # 2. Fetch PV Data (Hourly simulation for ALIGNED year)
         # PVGIS seriescalc
         pv_df = pv_service.fetch_pv_generation(
             lat=config.lat,
@@ -113,20 +126,29 @@ def run_optimization(config: ProjectConfig):
             peak_power_kw=config.pv_capacity_mw * 1000,
             loss=config.loss_factor,
             tilt=config.pv_tilt,
-            azimuth=config.pv_azimuth
+            azimuth=config.pv_azimuth,
+            year=simulation_year
         )
         
-        # 3. Run Optimization
+        # 3. Run Optimization (MILP)
         result = optimization_service.run_optimization(
             pv_df=pv_df,
             price_data=price_data,
             bess_power_mw=config.bess_power_mw,
-            bess_capacity_mwh=config.bess_capacity_mwh
+            bess_capacity_mwh=config.bess_capacity_mwh,
+            min_soc_percent=config.min_soc_percent,
+            throughput_cost_eur_mwh=config.throughput_cost_eur_mwh
         )
+        
+        # Attach zone info for UI context
+        result['zone'] = zone
+        result['simulation_year'] = simulation_year
         
         return result
 
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Optimization failed: {str(e)}")
 
 

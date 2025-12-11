@@ -49,28 +49,54 @@ class EntsoeService:
     def fetch_day_ahead_prices(self, zone: str, start_date: pd.Timestamp, end_date: pd.Timestamp):
         """
         Fetches Day-Ahead Market prices for the given zone and date range.
-        Fallback order:
-        1. Local cache (recent API fetches)
-        2. ENTSO-E API (if available)
-        3. Manual uploads (backend/data/prices/{zone}.csv)
-        4. Fallback data (backend/data/prices/fallback.csv)
+        Returns DataFrame with UTC-localized index.
         """
+        # Ensure UTC
+        if start_date.tz is None:
+            start_date = start_date.tz_localize('UTC')
+        else:
+            start_date = start_date.tz_convert('UTC')
+            
+        if end_date.tz is None:
+            end_date = end_date.tz_localize('UTC')
+        else:
+            end_date = end_date.tz_convert('UTC')
+            
         cache_file = os.path.join(CACHE_DIR, f"dam_prices_{zone}_{start_date.strftime('%Y%m%d')}_{end_date.strftime('%Y%m%d')}.csv")
         
         # Try cache first
         if os.path.exists(cache_file):
             print(f"✓ Loading from cache: {cache_file}")
             df = pd.read_csv(cache_file, index_col=0, parse_dates=True)
+            
+            # Ensure DateTimeIndex
+            if not isinstance(df.index, pd.DatetimeIndex):
+                df.index = pd.to_datetime(df.index, utc=True)
+            
+            if df.index.tz is None:
+                df.index = df.index.tz_localize('UTC')
+            else:
+                df.index = df.index.tz_convert('UTC')
             return df
         
         # Try ENTSO-E API
         if self.client:
             print(f"📡 Fetching from ENTSO-E API for {zone}...")
             try:
+                # ENTSO-E client expects naive or localized? It handles it usually.
                 prices_series = self.client.query_day_ahead_prices(country_code=zone, start=start_date, end=end_date)
                 df = prices_series.to_frame(name='price')
                 
-                # Save to cache for future use
+                # Ensure UTC
+                if not isinstance(df.index, pd.DatetimeIndex):
+                    df.index = pd.to_datetime(df.index, utc=True)
+
+                if df.index.tz is not None:
+                    df.index = df.index.tz_convert('UTC')
+                else:
+                    df.index = df.index.tz_localize('UTC')
+                
+                # Save to cache
                 df.to_csv(cache_file)
                 print(f"✓ Data cached successfully")
                 return df
@@ -87,6 +113,16 @@ class EntsoeService:
         if os.path.exists(manual_file):
             print(f"✓ Loading manual data: {manual_file}")
             df = pd.read_csv(manual_file, index_col=0, parse_dates=True)
+            
+            # Ensure DateTimeIndex
+            if not isinstance(df.index, pd.DatetimeIndex):
+                df.index = pd.to_datetime(df.index, utc=True)
+                
+            if df.index.tz is None:
+                 df.index = df.index.tz_localize('UTC')
+            else:
+                 df.index = df.index.tz_convert('UTC')
+                 
             # Filter to requested date range
             df = df.loc[start_date:end_date]
             return df
@@ -100,6 +136,16 @@ class EntsoeService:
         if os.path.exists(fallback_file):
             print(f"⚠️ Using fallback data: {fallback_file}")
             df = pd.read_csv(fallback_file, index_col=0, parse_dates=True)
+            
+            # Ensure DateTimeIndex
+            if not isinstance(df.index, pd.DatetimeIndex):
+                df.index = pd.to_datetime(df.index, utc=True)
+                
+            if df.index.tz is None:
+                 df.index = df.index.tz_localize('UTC')
+            else:
+                 df.index = df.index.tz_convert('UTC')
+                 
             df = df.loc[start_date:end_date]
             return df
         
