@@ -21,7 +21,7 @@ A horizontal progress bar at the top of the page showing:
 This provides visual feedback and helps users understand where they are
 in the analysis process.
 
-Author: [Your Name]
+Author: Aswath
 Date: 2025-12-11
 """
 

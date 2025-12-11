@@ -37,7 +37,7 @@ st.session_state tracks:
 - pv_config: PV configuration
 - bess_config: Battery configuration
 
-Author: [Your Name]
+Author: Aswath
 Date: 2025-12-11
 """
 
@@ -461,6 +461,6 @@ with footer_col2:
 with footer_col3:
     st.markdown("""
     <p style='text-align: right; margin: 0; color: #94a3b8; font-size: 0.85rem;'>
-        © 2025 Antigravity AI
+        © 2025 Aswath
     </p>
     """, unsafe_allow_html=True)

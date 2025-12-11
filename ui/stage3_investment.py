@@ -29,7 +29,7 @@ User Flow:
 5. Explore advanced settings (degradation rates)
 6. Make investment decision
 
-Author: [Your Name]
+Author: Aswath
 Date: 2025-12-11
 """
 

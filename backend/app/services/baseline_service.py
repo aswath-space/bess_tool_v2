@@ -24,7 +24,7 @@ Key Concepts:
    A capture rate of 72% means the solar plant only captures 72% of
    the average market price due to its generation profile.
 
-Author: [Your Name]
+Author: Aswath
 Date: 2025-12-11
 """
 

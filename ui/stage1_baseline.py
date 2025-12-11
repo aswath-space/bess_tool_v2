@@ -27,7 +27,7 @@ User Flow:
 4. If capture rate < 70%, highlight battery recommendation
 5. "Add Battery Storage" button appears to move to Stage 2
 
-Author: [Your Name]
+Author: Aswath
 Date: 2025-12-11
 """
 

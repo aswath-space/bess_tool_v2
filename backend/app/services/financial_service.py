@@ -37,7 +37,7 @@ User-Specified Parameters:
 - PV Degradation: 1%/year (advanced setting)
 - Battery Degradation: 2%/year (advanced setting)
 
-Author: [Your Name]
+Author: Aswath
 Date: 2025-12-11
 """
 

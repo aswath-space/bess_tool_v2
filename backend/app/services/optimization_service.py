@@ -62,7 +62,7 @@ Alternative Libraries:
 
 For battery dispatch (a convex problem), CVXPY is the best choice.
 
-Author: [Your Name]
+Author: Aswath
 Date: 2025-12-11
 """
 

@@ -36,7 +36,7 @@ def render_credits_page():
     
     ### Development Team
     
-    Developed by **Antigravity AI** for the Advanced Agentic Coding project.
+    Developed by Aswath through **Antigravity AI** for the Advanced Agentic Coding project.
     """)
     
     if st.button("← Back to App"):

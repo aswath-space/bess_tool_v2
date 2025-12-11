@@ -27,7 +27,7 @@ User Flow:
 5. See value bridge showing revenue breakdown
 6. Move to Stage 3 for investment decision
 
-Author: [Your Name]
+Author: Aswath
 Date: 2025-12-11
 """
 

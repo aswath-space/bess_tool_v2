@@ -26,7 +26,7 @@ Sizing Philosophy:
 - Moderate: Balanced approach (DEFAULT)
 - Aggressive: Larger battery, higher potential revenue, more risk
 
-Author: [Your Name]
+Author: Aswath
 Date: 2025-12-11
 """
 

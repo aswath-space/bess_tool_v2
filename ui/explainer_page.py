@@ -5,7 +5,7 @@ Theory & Concepts Explainer Page
 This page provides comprehensive theoretical background for the PV-BESS
 Revenue Optimization Tool.
 
-Author: Antigravity AI
+Author: Aswath
 Date: 2025-12-11
 """
 
