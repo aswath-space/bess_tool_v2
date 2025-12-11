@@ -1,0 +1,21 @@
+# Core Dependencies
+streamlit
+pandas
+plotly
+requests
+
+# API Clients
+entsoe-py
+geopy
+
+# Numerical & Optimization
+numpy
+numpy-financial
+cvxpy
+
+# Configuration
+python-dotenv
+
+# Testing
+pytest
+pytest-cov
