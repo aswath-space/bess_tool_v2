@@ -12,31 +12,31 @@ def render_credits_page():
     st.title("⭐️ Credits & Acknowledgements")
     
     st.markdown("""
-    ### Data Sources
+    ### Data & Core Libraries   
     
-    **Electricity Prices**
-    - Source: [ENTSO-E Transparency Platform](https://transparency.entsoe.eu/)
-    - Data: Day-ahead market prices (hourly)
-    - License: Creative Commons Attribution 4.0 International (CC BY 4.0)
+    **Electricity Markets**
+    - Data: [ENTSO-E Transparency Platform](https://transparency.entsoe.eu/) (CC BY 4.0)
+    - Client: [entsoe-py](https://github.com/EnergieID/entsoe-py) (MIT)
     
     **Solar Generation**
-    - Source: [PVGIS (Photovoltaic Geographical Information System)](https://re.jrc.ec.europa.eu/pvg_tools/en/)
-    - European Commission Joint Research Centre
-    - Data: Hourly solar generation profiles based on satellite data
+    - Data Source: [Open-Meteo.com](https://open-meteo.com/) (CC BY 4.0)
+    - Simulation Engine: [pvlib python](https://pvlib-python.readthedocs.io/) (BSD-3-Clause)
+    - *Weather data provided by Open-Meteo.com under CC BY 4.0 license.*
     
-    ### Technologies
+    ### Optimization Stack
     
-    **Optimization Engine**
-    - [CVXPY](https://www.cvxpy.org/) - Convex optimization library for Python
-    - [CLARABEL](https://github.com/oxfordcontrol/Clarabel.rs) - Primary solver for battery dispatch
+    **Engine**
+    - [CVXPY](https://www.cvxpy.org/) (Apache 2.0) - Modeling language
+    - [HiGHS](https://highs.dev/) (MIT) - Mixed-Integer Linear Programming (MILP) solver
     
-    **Frontend & Visualization**
-    - [Streamlit](https://streamlit.io/) - Web application framework
-    - [Plotly](https://plotly.com/python/) - Interactive charting library
+    ### Application Framework
+    
+    - Frontend: [Streamlit](https://streamlit.io/) (Apache 2.0)
+    - Visualization: [Plotly](https://plotly.com/python/) (MIT)
+    - Data Processing: [Pandas](https://pandas.pydata.org/) & [NumPy](https://numpy.org/) (BSD-3-Clause)
     
     ### Development Team
-    
-    Developed by Aswath through **Antigravity AI** for the Advanced Agentic Coding project.
+    Developed by Aswath through **Antigravity AI**.
     """)
     
     if st.button("← Back to App"):
