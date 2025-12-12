@@ -49,7 +49,7 @@ Thumbs.db
 *.ipynb
 
 # Streamlit
-.streamlit/config.toml
+# .streamlit/config.toml
 
 # Testing
 .pytest_cache/
