@@ -1,8 +1,12 @@
-/* Tailwind-like CSS Variables & Modern Styling */
+/* ---------------------------------------
+   FONT IMPORTS
+---------------------------------------- */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap');
 
+/* ---------------------------------------
+   COLOR & SPACING VARIABLES
+---------------------------------------- */
 :root {
-    /* Color Palette - Slate & Blue */
     --slate-50: #f8fafc;
     --slate-100: #f1f5f9;
     --slate-200: #e2e8f0;
@@ -14,222 +18,157 @@
     --slate-800: #1e293b;
     --slate-900: #0f172a;
 
-    --primary-50: #eff6ff;
     --primary-100: #dbeafe;
-    --primary-200: #bfdbfe;
     --primary-500: #3b82f6;
     --primary-600: #2563eb;
-    --primary-700: #1d4ed8;
 
-    /* Spacing */
-    --spacing-xs: 0.25rem;
-    --spacing-sm: 0.5rem;
-    --spacing-md: 1rem;
-    --spacing-lg: 1.5rem;
-    --spacing-xl: 2rem;
+    --radius-md: 0.75rem;
+    --radius-lg: 1.5rem;
+    --padding-card: 1.5rem;
 }
 
-html,
-body,
-[class*="css"] {
-    font-family: 'Outfit', 'Inter', sans-serif;
+/* ---------------------------------------
+   BASE TYPOGRAPHY / GLOBAL
+---------------------------------------- */
+html, body {
+    font-family: "Outfit", "Inter", sans-serif;
+    background: var(--slate-50);
     color: var(--slate-900);
-    background-color: var(--slate-50);
 }
 
-/* Strong overrides to prevent Streamlit/hosted themes from inverting colors */
-html, body, .stApp, [data-testid="stAppViewContainer"], .block-container, section[data-testid="stSidebar"] {
-    background-color: var(--slate-50) !important;
-    color: var(--slate-900) !important;
-    color-scheme: light !important;
+/* Avoid full inversion by defining light mode cleanly */
+html {
+    color-scheme: light;
 }
 
-/* Reset any CSS filters (some hosting environments use invert filters) */
-*, *::before, *::after {
-    filter: none !important;
-    background-image: none !important;
-}
+/* DO NOT use global filter resets – avoid breaking images */
 
-/* App container background */
 .stApp {
-    background-color: var(--slate-50);
+    background: var(--slate-50);
 }
 
-/* --- RESPONSIVE LAYOUT FIX --- */
-/* Center the main content and limit width */
+/* ---------------------------------------
+   LAYOUT
+---------------------------------------- */
 .block-container {
     max-width: 900px;
+    margin: 0 auto;
     padding-top: 2rem;
-    padding-bottom: 5rem;
+    padding-bottom: 4rem;
     padding-left: 1rem;
     padding-right: 1rem;
-    margin: 0 auto;
 }
 
-/* Hide default elements */
+/* Optional: collapse sidebar instead of hiding it abruptly */
 section[data-testid="stSidebar"] {
-    display: none;
-    /* Force hide sidebar */
+    background: var(--slate-50);
+    border-right: 1px solid var(--slate-100);
 }
 
-#MainMenu {
-    visibility: hidden;
-}
-
-footer {
-    visibility: hidden;
-}
-
-header {
-    visibility: hidden;
-}
-
-/* Card Styling */
-.css-card {
-    background-color: white !important;
-    padding: var(--spacing-xl);
-    border-radius: 1.5rem;
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.03), 0 4px 6px -2px rgba(0, 0, 0, 0.01);
-    border: 1px solid var(--slate-100);
-    margin-bottom: var(--spacing-lg);
-    text-align: center;
-}
-
-.css-card h3 {
-    margin-top: 0;
-    font-size: 1.5rem;
-    color: var(--slate-900);
-}
-
-.css-card p {
-    color: var(--slate-500);
-    font-size: 1.1rem;
-    line-height: 1.6;
-}
-
-/* Headings */
-h1,
-h2,
-h3,
-h4 {
-    font-family: 'Outfit', sans-serif;
-    color: var(--slate-900);
+/* ---------------------------------------
+   TITLES
+---------------------------------------- */
+h1, h2, h3, h4 {
+    font-family: "Outfit", sans-serif;
     font-weight: 700;
+    color: var(--slate-900);
 }
 
 h1 {
     font-size: clamp(2rem, 5vw, 3rem);
-    /* Responsive H1 */
-    letter-spacing: -0.03em;
-    margin-bottom: var(--spacing-lg);
-    text-align: center;
-    color: var(--slate-900);
-    border: none !important;
+    margin-bottom: 1.5rem;
+    letter-spacing: -0.02em;
 }
 
-h2 {
-    font-size: clamp(1.5rem, 3vw, 2.25rem);
+/* ---------------------------------------
+   CARDS
+---------------------------------------- */
+.css-card {
+    background: white;
+    padding: var(--padding-card);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--slate-100);
+    box-shadow:
+        0 10px 15px -3px rgba(0,0,0,0.03),
+        0 4px 6px -2px rgba(0,0,0,0.02);
+    margin-bottom: 1.5rem;
 }
 
-h3 {
-    font-size: clamp(1.25rem, 2.5vw, 1.75rem);
-}
-
-/* Inputs & Widgets */
-label {
-    color: var(--slate-700) !important;
-    font-weight: 600 !important;
-    font-size: clamp(0.9rem, 1vw, 1rem) !important;
-    margin-bottom: 0.25rem !important;
-}
-
-div.stTextInput>div>div>input,
-div.stNumberInput>div>div>input,
-div.stSelectbox>div>div>div {
-    border-radius: 0.75rem;
+/* ---------------------------------------
+   INPUTS
+---------------------------------------- */
+div.stTextInput input,
+div.stNumberInput input {
+    border-radius: var(--radius-md);
     border: 1px solid var(--slate-200);
+    background: white;
     color: var(--slate-900);
-    background-color: white;
     padding: 0.5rem;
     font-weight: 500;
-    font-size: clamp(0.9rem, 1vw, 1rem);
 }
 
-div.stTextInput>div>div>input:focus,
-div.stNumberInput>div>div>input:focus {
+div.stTextInput input:focus,
+div.stNumberInput input:focus {
+    outline: none;
     border-color: var(--primary-500);
     box-shadow: 0 0 0 3px var(--primary-100);
 }
 
-/* Custom Buttons */
-div.stButton>button {
-    background-color: var(--slate-900) !important;
-    /* Dark button like overflow.io main action */
-    color: white !important;
-    border-radius: 0.75rem;
+/* ---------------------------------------
+   BUTTONS
+---------------------------------------- */
+div.stButton > button {
+    background: var(--slate-900);
+    color: white;
+    border-radius: var(--radius-md);
     padding: 0.75rem 1.5rem;
     font-weight: 600;
-    font-size: 1rem;
     border: none;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-    transition: all 0.2s;
-    width: 100%;
+    transition: background 0.15s ease, transform 0.15s ease;
 }
 
-div.stButton>button:hover {
-    background-color: var(--primary-600);
+div.stButton > button:hover {
+    background: var(--primary-600);
     transform: translateY(-2px);
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
 }
 
-div.stButton>button:active {
+div.stButton > button:active {
     transform: translateY(0);
 }
 
-/* Expander Styling */
-.streamlit-expanderHeader {
-    background-color: white;
-    border-radius: 0.75rem;
+/* ---------------------------------------
+   EXPANDERS
+---------------------------------------- */
+[data-testid="stExpander"] > details {
     border: 1px solid var(--slate-200);
-    color: var(--slate-900);
+    border-radius: var(--radius-md);
+    background: white;
+}
+
+summary {
     font-weight: 600;
-    font-size: 1.1rem;
+    color: var(--slate-900);
 }
 
-div[data-testid="stExpander"] {
-    background-color: transparent;
-    border: none;
-}
-
-div[data-testid="stExpanderDetails"] {
-    border: 1px solid var(--slate-200);
-    border-top: none;
-    border-bottom-left-radius: 0.75rem;
-    border-bottom-right-radius: 0.75rem;
-    background-color: white;
-    padding: 1.5rem;
-}
-
-/* Metrics */
-div[data-testid="metric-container"] {
-    background-color: white;
-    padding: 1.5rem;
-    border-radius: 1rem;
+/* ---------------------------------------
+   METRIC WIDGET
+---------------------------------------- */
+[data-testid="metric-container"] {
+    background: white;
+    padding: 1.25rem;
+    border-radius: var(--radius-md);
     border: 1px solid var(--slate-100);
-    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
 }
 
-div[data-testid="metric-container"] label {
-    margin-bottom: 0.5rem !important;
-}
-
-/* Links */
+/* ---------------------------------------
+   LINKS
+---------------------------------------- */
 a {
     color: var(--primary-600);
     text-decoration: none;
     font-weight: 500;
 }
-
 a:hover {
     text-decoration: underline;
 }
