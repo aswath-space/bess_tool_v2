@@ -4,7 +4,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap');
 
 /* ---------------------------------------
-   COLOR & SPACING VARIABLES
+   LIGHT THEME VARIABLES (DEFAULT)
 ---------------------------------------- */
 :root {
     --slate-50: #f8fafc;
@@ -25,24 +25,43 @@
     --radius-md: 0.75rem;
     --radius-lg: 1.5rem;
     --padding-card: 1.5rem;
+
+    color-scheme: light;
+}
+
+/* ---------------------------------------
+   DARK THEME VARIABLES (AUTO SWITCH)
+---------------------------------------- */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --slate-50: #0d1117;
+        --slate-100: #161b22;
+        --slate-200: #1f242c;
+        --slate-300: #2d333b;
+        --slate-400: #7d8590;
+        --slate-500: #9ca3af;
+        --slate-600: #cbd5e1;
+        --slate-700: #e5e7eb;
+        --slate-800: #f3f4f6;
+        --slate-900: #f9fafb;
+
+        --primary-100: rgba(59, 130, 246, 0.15);
+        --primary-500: #60a5fa;
+        --primary-600: #3b82f6;
+
+        color-scheme: dark;
+    }
 }
 
 /* ---------------------------------------
    BASE TYPOGRAPHY / GLOBAL
 ---------------------------------------- */
-html,
-body {
+html, body {
     font-family: "Outfit", "Inter", sans-serif;
     background: var(--slate-50);
     color: var(--slate-900);
+    transition: background 0.25s ease, color 0.25s ease;
 }
-
-/* Avoid full inversion by defining light mode cleanly */
-html {
-    color-scheme: light;
-}
-
-/* DO NOT use global filter resets – avoid breaking images */
 
 .stApp {
     background: var(--slate-50);
@@ -54,25 +73,19 @@ html {
 .block-container {
     max-width: 900px;
     margin: 0 auto;
-    padding-top: 2rem;
-    padding-bottom: 4rem;
-    padding-left: 1rem;
-    padding-right: 1rem;
+    padding: 2rem 1rem 4rem 1rem;
 }
 
-/* Optional: collapse sidebar instead of hiding it abruptly */
+/* Sidebar retains layout integrity but stays minimal */
 section[data-testid="stSidebar"] {
     background: var(--slate-50);
     border-right: 1px solid var(--slate-100);
 }
 
 /* ---------------------------------------
-   TITLES
+   HEADINGS
 ---------------------------------------- */
-h1,
-h2,
-h3,
-h4 {
+h1, h2, h3, h4 {
     font-family: "Outfit", sans-serif;
     font-weight: 700;
     color: var(--slate-900);
@@ -88,14 +101,15 @@ h1 {
    CARDS
 ---------------------------------------- */
 .css-card {
-    background: white;
+    background: var(--slate-100);
     padding: var(--padding-card);
     border-radius: var(--radius-lg);
-    border: 1px solid var(--slate-100);
+    border: 1px solid var(--slate-200);
     box-shadow:
-        0 10px 15px -3px rgba(0, 0, 0, 0.03),
-        0 4px 6px -2px rgba(0, 0, 0, 0.02);
+        0 10px 15px -3px rgba(0,0,0,0.05),
+        0 4px 6px -2px rgba(0,0,0,0.03);
     margin-bottom: 1.5rem;
+    transition: background 0.25s ease, border-color 0.25s ease;
 }
 
 /* ---------------------------------------
@@ -104,49 +118,12 @@ h1 {
 div.stTextInput input,
 div.stNumberInput input {
     border-radius: var(--radius-md);
-    border: 1px solid var(--slate-200);
-    background: white;
+    border: 1px solid var(--slate-300);
+    background: var(--slate-50);
     color: var(--slate-900);
     padding: 0.5rem;
     font-weight: 500;
-}
-
-/* Generic form control override to catch Streamlit DOM variations */
-input,
-textarea,
-select,
-button,
-input[type="number"],
-input[type="text"] {
-    background-color: white !important;
-    color: var(--slate-900) !important;
-    border: 1px solid var(--slate-200) !important;
-    -webkit-text-fill-color: var(--slate-900) !important;
-    caret-color: var(--slate-900) !important;
-}
-
-/* Autofill override (Chrome) to prevent yellow/colored backgrounds */
-input:-webkit-autofill,
-textarea:-webkit-autofill,
-select:-webkit-autofill {
-    -webkit-box-shadow: 0 0 0 1000px white inset !important;
-    -webkit-text-fill-color: var(--slate-900) !important;
-}
-
-/* Remove built-in spin button appearance that some themes invert */
-input::-webkit-outer-spin-button,
-input::-webkit-inner-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
-}
-
-/* Force Streamlit number/text input wrappers to transparent so inputs show white */
-div[data-testid*="stNumberInput"],
-div[data-testid*="stTextInput"],
-div[data-testid*="stSelectbox"],
-.stNumberInput,
-.stTextInput {
-    background-color: transparent !important;
+    transition: background 0.25s ease, border-color 0.25s ease;
 }
 
 div.stTextInput input:focus,
@@ -159,62 +136,51 @@ div.stNumberInput input:focus {
 /* ---------------------------------------
    BUTTONS
 ---------------------------------------- */
-div.stButton>button {
+div.stButton > button {
     background: var(--slate-900);
     color: white;
     border-radius: var(--radius-md);
     padding: 0.75rem 1.5rem;
     font-weight: 600;
     border: none;
-    transition: background 0.15s ease, transform 0.15s ease;
+    width: 100%;
+    transition: background 0.2s ease, transform 0.2s ease;
 }
 
-div.stButton>button:hover {
+div.stButton > button:hover {
     background: var(--primary-600);
     transform: translateY(-2px);
 }
 
-div.stButton>button:active {
+div.stButton > button:active {
     transform: translateY(0);
 }
 
 /* ---------------------------------------
    EXPANDERS
 ---------------------------------------- */
-[data-testid="stExpander"]>details {
-    border: 1px solid var(--slate-200);
+[data-testid="stExpander"] > details {
+    background: var(--slate-100);
+    border: 1px solid var(--slate-300);
     border-radius: var(--radius-md);
-    background: white;
+    transition: background 0.25s ease, border-color 0.25s ease;
 }
 
 summary {
     font-weight: 600;
     color: var(--slate-900);
-    font-weight: 600;
-    font-size: 1.1rem;
 }
 
-div[data-testid="stExpander"] {
-    background-color: transparent;
-    border: none;
-}
-
-div[data-testid="stExpanderDetails"] {
+/* ---------------------------------------
+   METRIC BOXES
+---------------------------------------- */
+[data-testid="metric-container"] {
+    background: var(--slate-100);
+    padding: 1.25rem;
+    border-radius: var(--radius-md);
     border: 1px solid var(--slate-200);
-    border-top: none;
-    border-bottom-left-radius: 0.75rem;
-    border-bottom-right-radius: 0.75rem;
-    background-color: white;
-    padding: 1.5rem;
-}
-
-/* Metrics */
-div[data-testid="metric-container"] {
-    background-color: white;
-    padding: 1.5rem;
-    border-radius: 1rem;
-    border: 1px solid var(--slate-100);
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    transition: background 0.25s ease, border-color 0.25s ease;
 }
 
 /* ---------------------------------------
@@ -224,6 +190,7 @@ a {
     color: var(--primary-600);
     text-decoration: none;
     font-weight: 500;
+    transition: color 0.25s ease;
 }
 
 a:hover {
