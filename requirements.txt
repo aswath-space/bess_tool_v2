@@ -3,6 +3,7 @@ streamlit
 pandas
 plotly
 requests
+fastapi
 
 # API Clients
 entsoe-py
