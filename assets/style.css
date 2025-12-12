@@ -155,6 +155,33 @@ div.stSelectbox>div>div>div {
     font-size: clamp(0.9rem, 1vw, 1rem);
 }
 
+/* Generic form control override to catch Streamlit DOM variations */
+input, textarea, select, button, input[type="number"], input[type="text"] {
+    background-color: white !important;
+    color: var(--slate-900) !important;
+    border: 1px solid var(--slate-200) !important;
+    -webkit-text-fill-color: var(--slate-900) !important;
+    caret-color: var(--slate-900) !important;
+}
+
+/* Autofill override (Chrome) to prevent yellow/colored backgrounds */
+input:-webkit-autofill, textarea:-webkit-autofill, select:-webkit-autofill {
+    -webkit-box-shadow: 0 0 0 1000px white inset !important;
+    -webkit-text-fill-color: var(--slate-900) !important;
+}
+
+/* Remove built-in spin button appearance that some themes invert */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+/* Force Streamlit number/text input wrappers to transparent so inputs show white */
+div[data-testid*="stNumberInput"], div[data-testid*="stTextInput"], div[data-testid*="stSelectbox"], .stNumberInput, .stTextInput {
+    background-color: transparent !important;
+}
+
 div.stTextInput>div>div>input:focus,
 div.stNumberInput>div>div>input:focus {
     border-color: var(--primary-500);
@@ -194,6 +221,23 @@ div.stButton>button:active {
     color: var(--slate-900);
     font-weight: 600;
     font-size: 1.1rem;
+}
+
+/* Additional expander/header catches for Streamlit's changing DOM */
+[data-testid="stExpander"] > div[role="button"],
+button[aria-expanded],
+.st-accordion-header,
+.streamlit-expanderHeader {
+    background-color: var(--slate-100) !important;
+    color: var(--slate-900) !important;
+    border-radius: 0.75rem !important;
+    border: 1px solid var(--slate-200) !important;
+}
+
+/* Ensure no invert/filter is applied inside the app container */
+[data-testid="stAppViewContainer"], .stApp, html, body {
+    filter: none !important;
+    -webkit-filter: none !important;
 }
 
 div[data-testid="stExpander"] {
