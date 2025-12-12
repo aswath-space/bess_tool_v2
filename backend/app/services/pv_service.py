@@ -13,7 +13,7 @@ class PVService:
         retry_session = retry_requests.retry(cache_session, retries=5, backoff_factor=0.2)
         self.client = openmeteo_requests.Client(session=retry_session)
 
-    def fetch_pv_generation(self, lat: float, lon: float, peak_power_kw: float, loss: float, tilt: float, azimuth: float, year: int = 2023) -> pd.DataFrame:
+    def fetch_pv_generation(self, lat: float, lon: float, peak_power_kw: float, loss: float, tilt: float, azimuth: float, start_date: str, end_date: str) -> pd.DataFrame:
         """
         Fetches hourly weather data from Open-Meteo (ERA5) and calculates PV output using pvlib.
         Returns a DataFrame with UTC-localized index and 'pv_power_kw'.
@@ -38,13 +38,13 @@ class PVService:
             params = {
                 "latitude": lat,
                 "longitude": lon,
-                "start_date": f"{year}-01-01",
-                "end_date": f"{year}-12-31",
+                "start_date": start_date,
+                "end_date": end_date,
                 "hourly": ["shortwave_radiation", "direct_normal_irradiance", "diffuse_radiation", "temperature_2m"],
                 "timeformat": "unixtime"
             }
             
-            print(f"📡 Fetching Open-Meteo data for {year} at {lat}, {lon}...")
+            print(f"📡 Fetching Open-Meteo data for {start_date} to {end_date} at {lat}, {lon}...")
             responses = self.client.weather_api(url, params=params)
             response = responses[0]
             
@@ -107,7 +107,7 @@ class PVService:
             # `gamma_pdc`: Temp coeff of power. -0.004 is roughly -0.4%/C (standard Silicon)
             
             dc_power = pvlib.pvsystem.pvwatts_dc(
-                g_poa_effective=poa_irradiance['poa_global'],
+                effective_irradiance=poa_irradiance['poa_global'],
                 temp_cell=cell_temperature,
                 pdc0=peak_power_kw * 1000, # Watts
                 gamma_pdc=-0.004,

@@ -110,6 +110,7 @@ st.markdown("""
 
 # Load custom CSS
 load_css("assets/style.css")
+# Trigger reload
 
 # ===================================================================
 # NAVIGATION ROUTING
@@ -223,12 +224,28 @@ if calculate_baseline:
     with st.spinner("📡 Fetching Data & Calculating PV Baseline..."):
         try:
             # ===========================
-            # STEP 1: Fetch Market Data
+            # STEP 1: Determine Analysis Period (Last Complete 12 Months)
             # ===========================
-            # Get last 365 days of data
-            end_date = pd.Timestamp.now(tz='UTC').normalize()
-            start_date = end_date - pd.Timedelta(days=365)
+            # Example: If today is Dec 12, 2025 -> Period is Dec 1, 2024 to Nov 30, 2025
+            today = pd.Timestamp.now(tz='UTC')
+            start_of_current_month = today.replace(day=1).normalize()
             
+            # End Date = Last moment of the previous month
+            end_date = start_of_current_month - pd.Timedelta(seconds=1)
+            
+            # Start Date = 1 year before the start of current month (to get exactly 12 months)
+            # e.g. Dec 1 2024
+            start_date = start_of_current_month - pd.DateOffset(years=1)
+            
+            # Store date info in session state for charts
+            st.session_state.analysis_start_date = start_date
+            st.session_state.analysis_end_date = end_date
+            
+            st.info(f"📅 Analysis Period: **{start_date.strftime('%Y-%m-%d')}** to **{end_date.strftime('%Y-%m-%d')}**")
+            
+            # ===========================
+            # STEP 2: Fetch Market Data
+            # ===========================
             # Determine market zone from coordinates
             zone = entsoe_service.get_zone_from_lat_lon(pv_config['lat'], pv_config['lon'])
             if not zone:
@@ -247,17 +264,20 @@ if calculate_baseline:
             ).to_dict(orient='records')
             
             # ===========================
-            # STEP 2: Fetch PV Data
+            # STEP 3: Fetch PV Data
             # ===========================
             status_placeholder.text("Simulating PV Generation (PVGIS)...")
             
+            # Pass explicit dates to Open-Meteo
             pv_df = pv_service.fetch_pv_generation(
                 lat=pv_config['lat'],
                 lon=pv_config['lon'],
                 peak_power_kw=pv_config['pv_capacity_mw'] * 1000,
                 loss=14.0,  # Default system losses
                 tilt=pv_config['pv_tilt'],
-                azimuth=pv_config['pv_azimuth']
+                azimuth=pv_config['pv_azimuth'],
+                start_date=start_date.strftime('%Y-%m-%d'),
+                end_date=end_date.strftime('%Y-%m-%d')
             )
             
             # ===========================
@@ -277,7 +297,8 @@ if calculate_baseline:
             st.session_state.pv_df = pv_df
             
             status_placeholder.empty()
-            st.success("✅ Analysis complete")
+            status_placeholder.empty()
+            # st.success("✅ Analysis complete") - Removed per user request
             
         except Exception as e:
             st.error(f"An error occurred: {str(e)}")
@@ -310,7 +331,7 @@ if st.session_state.show_bess_inputs and st.session_state.baseline_result is not
     
     # Handle optimization
     if optimize_button:
-        with st.spinner("⚡ Running LP Optimization..."):
+        with st.spinner("⚡ Optimizing..."):
             try:
                 # Run CVXPY optimization
                 optimization_result = optimization_service.run_optimization(
@@ -324,9 +345,9 @@ if st.session_state.show_bess_inputs and st.session_state.baseline_result is not
                 st.session_state.optimization_result = optimization_result
                 st.session_state.stage = 3  # Move to Stage 3
                 
-                # Success feedback
-                st.balloons()
-                st.success("✅ Battery optimization complete! Your revenue has been maximized.")
+                # Success feedback - Removed per user request
+                # st.balloons() 
+                # st.success("✅ Battery optimization complete! Your revenue has been maximized.")
                 
             except Exception as e:
                 st.error(f"Optimization failed: {str(e)}")
@@ -338,7 +359,8 @@ if st.session_state.show_bess_inputs and st.session_state.baseline_result is not
         
         render_stage2_results(
             optimization_result=st.session_state.optimization_result,
-            baseline_result=st.session_state.baseline_result
+            baseline_result=st.session_state.baseline_result,
+            analysis_start_date=st.session_state.get('analysis_start_date')
         )
 
 # ===================================================================

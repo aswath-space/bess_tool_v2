@@ -31,6 +31,7 @@ Date: 2025-12-11
 """
 
 import numpy as np
+import textwrap
 
 
 class AutoSizingService:
@@ -99,32 +100,34 @@ class AutoSizingService:
             power_ratio = AutoSizingService.POWER_RATIO_CONSERVATIVE
             duration = AutoSizingService.DURATION_SHORT
             rationale = """
-            **Conservative Sizing**
-            - Lower upfront CAPEX
-            - Proven ROI with less market risk
-            - Suitable for risk-averse investors
-            - Focuses on high-certainty arbitrage opportunities
+            <ul style="margin-top: 0.5rem; margin-bottom: 0px; padding-left: 1.5rem;">
+                <li>Lower upfront CAPEX</li>
+                <li>Proven ROI with less market risk</li>
+                <li>Suitable for risk-averse investors</li>
+                <li>Focuses on high-certainty arbitrage opportunities</li>
+            </ul>
             """
         elif mode.lower() == 'aggressive':
             power_ratio = AutoSizingService.POWER_RATIO_AGGRESSIVE
             duration = AutoSizingService.DURATION_LONG
             rationale = """
-            **Aggressive Sizing**
-            - Higher upfront CAPEX
-            - Maximizes revenue potential
-            - Suitable for markets with high price volatility
-            - Captures extended price spread opportunities
+            <ul style="margin-top: 0.5rem; margin-bottom: 0px; padding-left: 1.5rem;">
+                <li>Higher upfront CAPEX</li>
+                <li>Maximizes revenue potential</li>
+                <li>Suitable for markets with high price volatility</li>
+                <li>Captures extended price spread opportunities</li>
+            </ul>
             """
         else:  # moderate (DEFAULT)
             power_ratio = AutoSizingService.POWER_RATIO_MODERATE
             duration = AutoSizingService.DURATION_MEDIUM
             rationale = f"""
-            **Moderate Sizing (Recommended)**
-            - Balanced risk-reward profile
-            - Standard industry practice for PV+BESS
-            - Power: {power_ratio:.0%} of PV capacity
-            - Duration: {duration} hours for daily arbitrage cycles
-            - Optimizes both curtailment recovery and arbitrage
+            <ul style="margin-top: 0.5rem; margin-bottom: 0px; padding-left: 1.5rem;">
+                <li>Balanced risk-reward profile</li>
+                <li>Standard industry practice for PV+BESS</li>
+                <li>Sizing: {power_ratio:.0%} of PV capacity @ {duration}h duration</li>
+                <li>Optimizes both curtailment recovery and arbitrage</li>
+            </ul>
             """
         
         # ===================================================================
@@ -172,7 +175,7 @@ class AutoSizingService:
             'c_rate': round(c_rate, 3),
             'mode': mode,
             'power_ratio': power_ratio,
-            'rationale': rationale.strip()
+            'rationale': textwrap.dedent(rationale).strip()
         }
     
     @staticmethod

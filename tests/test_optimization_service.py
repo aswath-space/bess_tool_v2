@@ -18,27 +18,32 @@ class TestOptimizationService:
     def simple_scenario(self):
         """Create simple test scenario with clear arbitrage opportunity."""
         # 24 hours
-        hours = 24
+        hours_idx = pd.date_range('2024-01-01', periods=24, freq='h', tz='UTC')
         
         # PV generation: peak at noon
         pv_power = []
-        for hour in range(hours):
+        for hour in range(24):
             if 8 <= hour <= 16:
                 pv_power.append(1000)  # 1 MW during day
             else:
                 pv_power.append(0)
         
-        pv_df = pd.DataFrame({'pv_power_kw': pv_power})
+        pv_df = pd.DataFrame({'pv_power_kw': pv_power}, index=hours_idx)
         
         # Prices: low during day, high in evening
         price_data = []
-        for hour in range(hours):
+        for i, hour in enumerate(range(24)):
             if 8 <= hour <= 16:
-                price_data.append({'price': 30.0})  # Low during solar
+                price = 30.0  # Low during solar
             elif 17 <= hour <= 21:
-                price_data.append({'price': 150.0})  # High in evening
+                price = 150.0  # High in evening
             else:
-                price_data.append({'price': 60.0})  # Moderate at night
+                price = 60.0  # Moderate at night
+            
+            price_data.append({
+                'timestamp': hours_idx[i].isoformat(),
+                'price': price
+            })
         
         return pv_df, price_data
     
@@ -144,14 +149,20 @@ class TestOptimizationService:
     def test_negative_prices(self):
         """Test behavior with negative prices."""
         # Scenario with negative prices
-        pv_df = pd.DataFrame({'pv_power_kw': [1000] * 24})
+        hours_idx = pd.date_range('2024-01-01', periods=24, freq='h', tz='UTC')
+        pv_df = pd.DataFrame({'pv_power_kw': [1000] * 24}, index=hours_idx)
         
         price_data = []
-        for hour in range(24):
+        for i, hour in enumerate(range(24)):
             if 10 <= hour <= 14:
-                price_data.append({'price': -20.0})  # Negative during midday
+                price = -20.0  # Negative during midday
             else:
-                price_data.append({'price': 100.0})
+                price = 100.0
+            
+            price_data.append({
+                'timestamp': hours_idx[i].isoformat(),
+                'price': price
+            })
         
         result = optimization_service.run_optimization(
             pv_df=pv_df,
@@ -187,11 +198,20 @@ class TestOptimizationService:
     
     def test_annual_cycles(self, simple_scenario):
         """Test that annual cycles calculation is reasonable."""
-        pv_df, price_data = simple_scenario
+        # Extract base data patterns
+        orig_pv_df, orig_price_data = simple_scenario
+        pv_vals = orig_pv_df['pv_power_kw'].tolist()
+        price_vals = [p['price'] for p in orig_price_data]
         
-        # Extend to full year
-        pv_year = pd.concat([pv_df] * 365, ignore_index=True)
-        price_year = price_data * 365
+        # Create full year data (8760 hours)
+        hours_year = pd.date_range('2024-01-01', periods=8760, freq='h', tz='UTC')
+        
+        # Repeat patterns
+        pv_year_vals = (pv_vals * 365)
+        price_year_vals = (price_vals * 365)
+        
+        pv_year = pd.DataFrame({'pv_power_kw': pv_year_vals}, index=hours_year)
+        price_year = [{'timestamp': h.isoformat(), 'price': p} for h, p in zip(hours_year, price_year_vals)]
         
         result = optimization_service.run_optimization(
             pv_df=pv_year,
@@ -211,8 +231,9 @@ class TestOptimizationEdgeCases:
     
     def test_zero_battery_capacity(self):
         """Test with zero battery capacity (should return PV-only scenario)."""
-        pv_df = pd.DataFrame({'pv_power_kw': [100] * 24})
-        price_data = [{'price': 50.0}] * 24
+        hours_idx = pd.date_range('2024-01-01', periods=24, freq='h', tz='UTC')
+        pv_df = pd.DataFrame({'pv_power_kw': [100] * 24}, index=hours_idx)
+        price_data = [{'timestamp': h.isoformat(), 'price': 50.0} for h in hours_idx]
         
         # This might raise an error or return minimal battery usage
         # Depending on implementation, adjust assertion
@@ -232,8 +253,9 @@ class TestOptimizationEdgeCases:
     
     def test_flat_prices(self):
         """Test optimization with flat prices (no arbitrage opportunity)."""
-        pv_df = pd.DataFrame({'pv_power_kw': [1000] * 24})
-        price_data = [{'price': 50.0}] * 24  # Constant price
+        hours_idx = pd.date_range('2024-01-01', periods=24, freq='h', tz='UTC')
+        pv_df = pd.DataFrame({'pv_power_kw': [1000] * 24}, index=hours_idx)
+        price_data = [{'timestamp': h.isoformat(), 'price': 50.0} for h in hours_idx]
         
         result = optimization_service.run_optimization(
             pv_df=pv_df,
@@ -248,8 +270,13 @@ class TestOptimizationEdgeCases:
     
     def test_very_short_duration(self):
         """Test with very short duration battery (0.5 hours)."""
-        pv_df = pd.DataFrame({'pv_power_kw': [1000] * 24})
-        price_data = [{'price': 50.0 if i % 2 == 0 else 100.0} for i in range(24)]
+        hours_idx = pd.date_range('2024-01-01', periods=24, freq='h', tz='UTC')
+        pv_df = pd.DataFrame({'pv_power_kw': [1000] * 24}, index=hours_idx)
+        
+        price_data = []
+        for i, hour in enumerate(range(24)):
+            price = 50.0 if hour % 2 == 0 else 100.0
+            price_data.append({'timestamp': hours_idx[i].isoformat(), 'price': price})
         
         # High power, low capacity = short duration
         result = optimization_service.run_optimization(

@@ -36,6 +36,8 @@ import plotly.graph_objects as go
 from backend.app.services.auto_sizing_service import auto_sizing_service
 from backend.app.services.optimization_service import optimization_service
 from ui.progress_indicator import render_stage_header
+from ui.css import get_tooltip_css
+from ui.components import render_metric_card
 
 
 def render_stage2_inputs(pv_capacity_mw):
@@ -70,7 +72,8 @@ def render_stage2_inputs(pv_capacity_mw):
     )
     
     # Display recommendation
-    st.info(f"""
+    import textwrap
+    info_text = f"""
     **Recommended Battery Sizing** (based on your {pv_capacity_mw} MW PV system):
     
     - **Power**: {smart_defaults['power_mw']} MW ({smart_defaults['power_ratio']:.0%} of PV capacity)
@@ -78,7 +81,29 @@ def render_stage2_inputs(pv_capacity_mw):
     - **Capacity**: {smart_defaults['capacity_mwh']} MWh
     
     {smart_defaults['rationale']}
-    """)
+    """
+    # Blue Box (Info/Recommendation) Style
+    st.markdown(f"""
+    <div style="
+        background-color: rgba(59, 130, 246, 0.05); 
+        padding: 1rem; 
+        border-radius: 8px; 
+        border: 1px solid rgba(59, 130, 246, 0.2);
+        margin-bottom: 1rem;
+    ">
+        <div style="font-size: 1rem; color: var(--text-main); line-height: 1.6;">
+            <strong>Recommended Battery Sizing</strong> (based on your {pv_capacity_mw} MW PV system):
+            <ul style="margin-top: 0.5rem; margin-bottom: 0.5rem; padding-left: 1.5rem;">
+                <li><strong>Power</strong>: {smart_defaults['power_mw']} MW ({smart_defaults['power_ratio']:.0%} of PV capacity)</li>
+                <li><strong>Duration</strong>: {smart_defaults['duration_hours']} hours</li>
+                <li><strong>Capacity</strong>: {smart_defaults['capacity_mwh']} MWh</li>
+            </ul>
+            <div style="opacity: 0.9; margin-top: 0.5rem;">
+                {smart_defaults['rationale']}
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
     
     # ===================================================================
     # BATTERY CONFIGURATION
@@ -99,11 +124,21 @@ def render_stage2_inputs(pv_capacity_mw):
             bess_capacity_mwh = smart_defaults['capacity_mwh']
             
             # Show what we're using (read-only display)
-            col1, col2 = st.columns(2)
+            # Use 4 columns to keep cards compact and professional
+            col1, col2, col3, col4 = st.columns(4)
+            
+            # Calculate derived metrics for display
+            duration_hours = bess_capacity_mwh / bess_power_mw if bess_power_mw > 0 else 0
+            power_ratio = bess_power_mw / pv_capacity_mw if pv_capacity_mw > 0 else 0
+            
             with col1:
-                st.metric("Power", f"{bess_power_mw} MW")
+                st.markdown(render_metric_card("Power", f"{bess_power_mw} MW"), unsafe_allow_html=True)
             with col2:
-                st.metric("Capacity", f"{bess_capacity_mwh} MWh")
+                st.markdown(render_metric_card("Capacity", f"{bess_capacity_mwh} MWh"), unsafe_allow_html=True)
+            with col3:
+                st.markdown(render_metric_card("Duration", f"{duration_hours:.1f} hours"), unsafe_allow_html=True)
+            with col4:
+                st.markdown(render_metric_card("Power Ratio", f"{power_ratio:.0%} of PV"), unsafe_allow_html=True)
                 
         else:
             # MANUAL CONFIGURATION
@@ -203,7 +238,7 @@ def render_stage2_inputs(pv_capacity_mw):
         
         # Show total CAPEX
         total_bess_capex = bess_capacity_mwh * 1000 * bess_cost_eur_kwh
-        st.caption(f"**Total Battery CAPEX:** €{total_bess_capex/1e6:.2f}M")
+        st.markdown(f'<h4 class="capex-text">Total Battery CAPEX: €{total_bess_capex/1e6:.2f}M</h4>', unsafe_allow_html=True)
     
     # ===================================================================
     # MORE OPTIONS (Collapsible)
@@ -219,31 +254,34 @@ def render_stage2_inputs(pv_capacity_mw):
         
         with col1:
             st.markdown("**Conservative**")
-            st.caption(all_options['conservative']['rationale'])
-            st.metric("Power", f"{all_options['conservative']['power_mw']} MW")
-            st.metric("Capacity", f"{all_options['conservative']['capacity_mwh']} MWh")
-            st.metric("Duration", f"{all_options['conservative']['duration_hours']}h")
+            st.markdown(f"<div style='min-height: 12rem; font-size: 0.9em; color: gray;'>{all_options['conservative']['rationale']}</div>", unsafe_allow_html=True)
+            st.markdown(render_metric_card("Power", f"{all_options['conservative']['power_mw']} MW"), unsafe_allow_html=True)
+            st.markdown(render_metric_card("Capacity", f"{all_options['conservative']['capacity_mwh']} MWh"), unsafe_allow_html=True)
+            st.markdown(render_metric_card("Duration", f"{all_options['conservative']['duration_hours']}h"), unsafe_allow_html=True)
         
         with col2:
             st.markdown("**Moderate** ⭐")
-            st.caption("Recommended (current)")
-            st.metric("Power", f"{all_options['moderate']['power_mw']} MW")
-            st.metric("Capacity", f"{all_options['moderate']['capacity_mwh']} MWh")
-            st.metric("Duration", f"{all_options['moderate']['duration_hours']}h")
+            st.markdown(f"<div style='min-height: 12rem; font-size: 0.9em; color: gray;'>{all_options['moderate']['rationale']}</div>", unsafe_allow_html=True)
+            st.markdown(render_metric_card("Power", f"{all_options['moderate']['power_mw']} MW"), unsafe_allow_html=True)
+            st.markdown(render_metric_card("Capacity", f"{all_options['moderate']['capacity_mwh']} MWh"), unsafe_allow_html=True)
+            st.markdown(render_metric_card("Duration", f"{all_options['moderate']['duration_hours']}h"), unsafe_allow_html=True)
         
         with col3:
             st.markdown("**Aggressive**")
-            st.caption(all_options['aggressive']['rationale'])
-            st.metric("Power", f"{all_options['aggressive']['power_mw']} MW")
-            st.metric("Capacity", f"{all_options['aggressive']['capacity_mwh']} MWh")
-            st.metric("Duration", f"{all_options['aggressive']['duration_hours']}h")
+            st.markdown(f"<div style='min-height: 12rem; font-size: 0.9em; color: gray;'>{all_options['aggressive']['rationale']}</div>", unsafe_allow_html=True)
+            st.markdown(render_metric_card("Power", f"{all_options['aggressive']['power_mw']} MW"), unsafe_allow_html=True)
+            st.markdown(render_metric_card("Capacity", f"{all_options['aggressive']['capacity_mwh']} MWh"), unsafe_allow_html=True)
+            st.markdown(render_metric_card("Duration", f"{all_options['aggressive']['duration_hours']}h"), unsafe_allow_html=True)
     
     # ===================================================================
     # OPTIMIZE BUTTON
     # ===================================================================
-    st.markdown("---")
+    # ===================================================================
+    # OPTIMIZE BUTTON
+    # ===================================================================
+    st.markdown("<div style='height: 1rem;'></div>", unsafe_allow_html=True)
     
-    col1, col2, col3 = st.columns([1, 2, 1])
+    col1, col2, col3 = st.columns([1, 1, 1]) # Equal columns to center
     with col2:
         optimize_button = st.button(
             "⚡ Optimize with Battery",
@@ -262,7 +300,7 @@ def render_stage2_inputs(pv_capacity_mw):
     }, optimize_button
 
 
-def render_stage2_results(optimization_result, baseline_result):
+def render_stage2_results(optimization_result, baseline_result, analysis_start_date=None):
     """
     Display optimization results with value bridge and charts.
     
@@ -272,17 +310,20 @@ def render_stage2_results(optimization_result, baseline_result):
         Result from optimization_service.run_optimization()
     baseline_result : dict
         Result from baseline_service (for comparison)
+    analysis_start_date : pd.Timestamp, optional
+        Start date of the analysis period for correct chart indexing
     """
     
     # ===================================================================
-    # SUCCESS MESSAGE
     # ===================================================================
-    st.success("✅ Optimization Complete!")
+    # METRICS HEADER
+    # ===================================================================
     
     # ===================================================================
     # KEY METRICS
     # ===================================================================
     st.markdown("### 💰 Revenue Comparison")
+    st.markdown(get_tooltip_css(), unsafe_allow_html=True)
     
     baseline_revenue = baseline_result['total_revenue_eur']
     optimized_revenue = optimization_result['financials']['total_revenue_eur']
@@ -291,50 +332,49 @@ def render_stage2_results(optimization_result, baseline_result):
     
     col1, col2, col3, col4 = st.columns(4)
     
+    
     with col1:
-        st.metric(
-            "PV Only (Baseline)",
-            f"€{baseline_revenue:,.0f}",
-            help="Revenue without battery"
-        )
+        st.markdown(render_metric_card(
+            label="PV Only (Baseline)",
+            value=f"€{baseline_revenue:,.0f}",
+            help_text="Revenue without battery"
+        ), unsafe_allow_html=True)
     
     with col2:
-        st.metric(
-            "PV + Battery",
-            f"€{optimized_revenue:,.0f}",
-            delta=f"+€{incremental_revenue:,.0f}",
-            delta_color="normal",
-            help="Revenue with optimized battery"
-        )
+        st.markdown(render_metric_card(
+            label="PV + Battery",
+            value=f"€{optimized_revenue:,.0f}",
+            help_text="Revenue with optimized battery"
+        ), unsafe_allow_html=True)
     
     with col3:
-        st.metric(
-            "Revenue Increase",
-            f"{improvement_pct:.1f}%",
-            delta=f"+€{incremental_revenue:,.0f}/year",
+        st.markdown(render_metric_card(
+            label="Revenue Increase",
+            value=f"{improvement_pct:.1f}%",
+            delta=f"€{incremental_revenue:,.0f}",
             delta_color="normal",
-            help="Percentage improvement from adding battery"
-        )
+            help_text="Percentage improvement from adding battery"
+        ), unsafe_allow_html=True)
     
     with col4:
         cycles = optimization_result['financials']['annual_cycles']
-        st.metric(
-            "Battery Cycles",
-            f"{cycles:.1f}/year",
-            help="Full discharge cycles per year (affects battery lifetime)"
-        )
+        st.markdown(render_metric_card(
+            label="Battery Cycles",
+            value=f"{cycles:.1f}/year",
+            help_text="Full discharge cycles per year (affects battery lifetime)"
+        ), unsafe_allow_html=True)
     
     # ===================================================================
     # VALUE BRIDGE WATERFALL CHART
     # ===================================================================
-    st.markdown("---")
+    st.markdown("<div style='height: 1rem;'></div>", unsafe_allow_html=True)
     st.markdown("### 📊 Value Bridge: Where Does the Revenue Come From?")
     
     st.caption("""
     This waterfall chart breaks down how battery storage increases your revenue.
     Each bar shows a different revenue source.
     """)
-    
+
     render_value_bridge_waterfall(
         baseline_revenue=baseline_revenue,
         optimized_revenue=optimized_revenue,
@@ -345,7 +385,7 @@ def render_stage2_results(optimization_result, baseline_result):
     # ===================================================================
     # BATTERY UTILIZATION
     # ===================================================================
-    st.markdown("---")
+    st.markdown("<div style='height: 2rem;'></div>", unsafe_allow_html=True)
     st.markdown("### 🔋 Battery Performance Metrics")
     
     col1, col2, col3 = st.columns(3)
@@ -354,42 +394,108 @@ def render_stage2_results(optimization_result, baseline_result):
     arb = optimization_result['arbitrage']
     
     with col1:
-        st.metric(
-            "Utilization",
-            f"{fin['battery_utilization_percent']:.1f}%",
-            help="% of hours when battery is actively charging or discharging"
-        )
+        st.markdown(render_metric_card(
+            label="Utilization",
+            value=f"{fin['battery_utilization_percent']:.1f}%",
+            help_text="% of hours when battery is actively charging or discharging"
+        ), unsafe_allow_html=True)
     
     with col2:
-        st.metric(
-            "Avg Charge Price",
-            f"€{arb['avg_charging_price']:.1f}/MWh",
-            help="Average price when battery charges"
-        )
+        st.markdown(render_metric_card(
+            label="Avg Charge Price",
+            value=f"€{arb['avg_charging_price']:.1f}/MWh",
+            help_text="Average price when battery charges"
+        ), unsafe_allow_html=True)
     
     with col3:
-        st.metric(
-            "Avg Discharge Price",
-            f"€{arb['avg_discharging_price']:.1f}/MWh",
-            delta=f"+€{arb['price_spread']:.1f} spread",
+        st.markdown(render_metric_card(
+            label="Avg Discharge Price",
+            value=f"€{arb['avg_discharging_price']:.1f}/MWh",
+            delta=f"€{arb['price_spread']:.1f} spread",
             delta_color="normal",
-            help="Average price when battery discharges"
+            help_text="Average price when battery discharges"
+        ), unsafe_allow_html=True)
+    
+    # ===================================================================
+    # OPERATIONS & SOC CHARTS (With Toggle)
+    # ===================================================================
+    st.markdown("<div style='height: 2rem;'></div>", unsafe_allow_html=True)
+    st.markdown("### 📈 Operations Timeline")
+    
+    # Toggle for Time Range - Controls BOTH charts
+    col_toggle, col_spacer = st.columns([1, 3])
+    with col_toggle:
+        view_mode = st.radio(
+            "View Range",
+            ["First Week (Hourly)", "Full Year (Monthly Avg)"],
+            horizontal=True,
+            label_visibility="collapsed"
         )
     
-    # ===================================================================
-    # OPERATIONS CHARTS
-    # ===================================================================
-    st.markdown("---")
-    st.markdown("### 📈 Operations Timeline (First Week)")
+    # Process data based on toggle
+    import pandas as pd
     
-    render_operations_chart(optimization_result)
+    if view_mode == "First Week (Hourly)":
+        # === HOURLY VIEW ===
+        # Use the explicit hourly_data (which is truncated to 1 week)
+        df = pd.DataFrame(optimization_result['hourly_data'])
+        plot_df = df.iloc[:168].copy()
+        
+        # Power & Price Logic
+        x_col = plot_df.index
+        y_pv = plot_df['pv_power_kw']
+        y_bess = plot_df['bess_flow_kw']
+        y_price = plot_df['price_eur_mwh']
+        y_soc = plot_df['soc_kwh']
+        
+        y_unit_power = "kW"
+        y_unit_energy = "kWh"
+        title_suffix = "(First Week)"
+        x_title = "Hour"
+        
+    else:
+        # === MONTHLY VIEW ===
+        # Use full year dataframe if available, otherwise fall back to hourly (which will be broken/short)
+        if 'full_year_df' in optimization_result:
+            df = optimization_result['full_year_df'].copy()
+        else:
+            df = pd.DataFrame(optimization_result['hourly_data'])
+
+        # Ensure index is datetime
+        if not isinstance(df.index, pd.DatetimeIndex):
+            # Use provided start date or fallback
+            if 'analysis_start_date' in locals() and analysis_start_date is not None:
+                start_date = analysis_start_date
+            else:
+                start_date = pd.Timestamp.now().normalize() - pd.DateOffset(years=1)
+                
+            df.index = pd.date_range(start=start_date, periods=len(df), freq='h')
+            
+        # Resample - Power/Price = Mean, SOC = Mean (smoother) or Last (end of month)
+        # Using Mean for SOC gives a better idea of "average fullness"
+        resampled = df.resample('ME').mean() # Use 'ME' for Month End (pandas 2.0+) or 'M'
+        
+        plot_df = resampled
+        x_col = plot_df.index.strftime('%b')
+        
+        # Convert units for annual view
+        y_pv = plot_df['pv_power_kw'] / 1000 # MW
+        y_bess = plot_df['bess_flow_kw'] / 1000 # MW
+        y_price = plot_df['price_eur_mwh'] 
+        y_soc = plot_df['soc_kwh'] / 1000 # MWh
+        
+        y_unit_power = "MW (Avg)"
+        y_unit_energy = "MWh (Avg)"
+        title_suffix = "(Annual Average)"
+        x_title = "Month"
+
+    # Render Charts
+    render_operations_chart_v2(x_col, y_pv, y_bess, y_price, y_unit_power, title_suffix, x_title)
     
-    # ===================================================================
-    # BATTERY STATE OF CHARGE
-    # ===================================================================
+    st.markdown("<div style='height: 1rem;'></div>", unsafe_allow_html=True)
     st.markdown("### 🔋 Battery State of Charge")
     
-    render_soc_chart(optimization_result)
+    render_soc_chart_v2(x_col, y_soc, y_unit_energy, title_suffix, x_title)
 
 
 def render_value_bridge_waterfall(baseline_revenue, optimized_revenue, optimization_result, baseline_result):
@@ -452,92 +558,76 @@ def render_value_bridge_waterfall(baseline_revenue, optimized_revenue, optimizat
         showlegend=False,
         height=450,
         yaxis_title="Annual Revenue (€)",
-        margin=dict(l=20, r=20, t=60, b=80)
+        margin=dict(l=20, r=20, t=60, b=40), # Reduced bottom margin
+        annotations=[dict(
+            text="Waterfall chart showing incremental revenue sources from battery storage.",
+            x=0.5, y=0.02, # Moved inside (bottom)
+            xref="paper", yref="paper",
+            showarrow=False,
+            font=dict(size=12, color="gray"),
+            yanchor="bottom"
+        )]
     )
     
     st.plotly_chart(fig, use_container_width=True)
 
 
-def render_operations_chart(optimization_result):
-    """
-    Chart showing PV generation, battery flow, and prices over time.
-    """
-    import pandas as pd
-    
-    df = pd.DataFrame(optimization_result['hourly_data'])
-    
-    # Create figure with secondary y-axis
+def render_operations_chart_v2(x, y_pv, y_bess, y_price, unit, suffix, x_title):
     fig = go.Figure()
     
-    # PV Generation (area)
+    # PV Generation
     fig.add_trace(go.Scatter(
-        x=df.index,
-        y=df['pv_power_kw'],
-        name="PV Generation",
-        fill='tozeroy',
-        line=dict(color='#f59e0b', width=1),
-        opacity=0.6
+        x=x, y=y_pv, name="PV Generation",
+        fill='tozeroy', line=dict(color='#f59e0b', width=1), opacity=0.6,
+        hovertemplate=f"%{{y:.1f}} {unit}"
     ))
     
-    # Battery Flow (bar)
+    # Battery Flow
     fig.add_trace(go.Bar(
-        x=df.index,
-        y=df['bess_flow_kw'],
-        name="Battery Flow",
-        marker_color='#3b82f6'
+        x=x, y=y_bess, name="Battery Flow",
+        marker_color='#3b82f6',
+        hovertemplate=f"%{{y:.1f}} {unit}"
     ))
     
-    # Price (line on secondary axis)
+    # Price
     fig.add_trace(go.Scatter(
-        x=df.index,
-        y=df['price_eur_mwh'],
-        name="Market Price",
-        line=dict(color='#ef4444', width=2),
-        yaxis='y2'
+        x=x, y=y_price, name="Market Price",
+        line=dict(color='#ef4444', width=2), yaxis='y2',
+        hovertemplate="%{y:.1f} €/MWh"
     ))
     
-    # Layout
     fig.update_layout(
-        title="Power Flow and Prices (First Week)",
-        xaxis_title="Hour",
-        yaxis_title="Power (kW)",
-        yaxis2=dict(
-            title="Price (€/MWh)",
-            overlaying='y',
-            side='right'
-        ),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        height=450,
+        # title=f"Power Flow and Prices {suffix}", # Remove title inside graph for polish
+        xaxis_title=x_title,
+        yaxis_title=f"Power ({unit})",
+        yaxis2=dict(title="Price (€/MWh)", overlaying='y', side='right'),
+        legend=dict(orientation="h", y=1.1, x=0.5, xanchor="center"),
+        height=400,
+        margin=dict(l=20, r=20, t=20, b=20), # Tight margin
         hovermode="x unified"
     )
-    
     st.plotly_chart(fig, use_container_width=True)
 
 
-def render_soc_chart(optimization_result):
-    """
-    Chart showing battery state of charge over time.
-    """
-    import pandas as pd
-    
-    df = pd.DataFrame(optimization_result['hourly_data'])
-    
+def render_soc_chart_v2(x, y_soc, unit, suffix, x_title):
     fig = go.Figure()
     
     fig.add_trace(go.Scatter(
-        x=df.index,
-        y=df['soc_kwh'],
-        name="State of Charge",
-        fill='tozeroy',
-        line=dict(color='#10b981', width=2)
+        x=x, y=y_soc, name="State of Charge",
+        fill='tozeroy', line=dict(color='#10b981', width=2),
+        hovertemplate=f"%{{y:.1f}} {unit}"
     ))
     
     fig.update_layout(
-        title="Battery State of Charge Over Time",
-        xaxis_title="Hour",
-        yaxis_title="Energy Stored (kWh)",
+        # title=f"Battery SoC {suffix}",
+        xaxis_title=x_title,
+        yaxis_title=f"Energy ({unit})",
         height=300,
+        margin=dict(l=20, r=20, t=20, b=20),
         showlegend=False
     )
-    
     st.plotly_chart(fig, use_container_width=True)
+
+# Legacy function stubs to prevent errors if called, but not used
+def render_operations_chart(r): pass
+def render_soc_chart(r): pass

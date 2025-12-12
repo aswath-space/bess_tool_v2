@@ -94,17 +94,13 @@ def get_market_data(
 @app.post("/api/optimize")
 def run_optimization(config: ProjectConfig):
     try:
-        # 1. Fetch Market Data (Last 365 days)
-        # We need a shared consistent year. For simplicity, let's just fetch last 365 days of prices.
-        end = pd.Timestamp.now(tz='UTC').normalize()
-        start = end - pd.Timedelta(days=365)
+        # 1. Determine Analysis Period (Last Complete 12 Months)
+        # We need a shared consistent year.
+        today = pd.Timestamp.now(tz='UTC')
+        start_of_current_month = today.replace(day=1).normalize()
+        end = start_of_current_month - pd.Timedelta(seconds=1)
+        start = start_of_current_month - pd.DateOffset(years=1)
         
-        # Determine strict simulation year based on the price data start
-        # e.g. if start is 2023-12-11, we span 2023-2024. 
-        # PVGIS seriescalc needs a single year usually, or we can stitch.
-        # But seriescalc usually allows spanning? No, it takes startyear and endyear.
-        # Ideally, we pick the "dominant" year or just pass the start year.
-        # Let's use the start year of our price data.
         simulation_year = start.year
         
         zone = entsoe_service.get_zone_from_lat_lon(config.lat, config.lon)
@@ -127,7 +123,8 @@ def run_optimization(config: ProjectConfig):
             loss=config.loss_factor,
             tilt=config.pv_tilt,
             azimuth=config.pv_azimuth,
-            year=simulation_year
+            start_date=start.strftime('%Y-%m-%d'),
+            end_date=end.strftime('%Y-%m-%d')
         )
         
         # 3. Run Optimization (MILP)

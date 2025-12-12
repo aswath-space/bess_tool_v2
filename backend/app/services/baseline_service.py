@@ -85,11 +85,26 @@ class BaselineService:
         # Create a copy of the PV dataframe to avoid modifying the original
         df = pv_df.copy()
         
-        # Extract prices from the list of dictionaries
-        # We only use as many prices as we have PV data points
-        prices = [p['price'] for p in price_data[:len(df)]]
-        df['price'] = prices
+        # Convert price_data list to Series with datetime index
+        # price_data is expected to be a list of dicts: [{'timestamp': '...', 'price': ...}]
+        price_df = pd.DataFrame(price_data)
+        if not price_df.empty:
+            # Ensure timestamp column is datetime and set as index
+            if 'timestamp' in price_df.columns:
+                price_df['timestamp'] = pd.to_datetime(price_df['timestamp'], utc=True)
+                price_df.set_index('timestamp', inplace=True)
+            
+            # Merge PV data and Price data on index
+            # This ensures we match exactly the same hours
+            df = df.join(price_df['price'], how='inner')
+        else:
+            # Handle empty price data gracefully
+            df['price'] = 0.0
         
+        # Check if we have data after merge
+        if df.empty:
+            raise ValueError("No overlapping data found between PV generation and Prices. Please check date ranges.")
+
         # ===================================================================
         # STEP 2: Calculate Revenue
         # ===================================================================
@@ -252,29 +267,27 @@ class BaselineService:
         # Generate explanation
         if recommend:
             reason = f"""
-            ⚠️ **Battery Storage Recommended**
-            
-            Your capture rate is {capture_rate:.1%}, which means your solar 
-            plant only captures {capture_rate:.1%} of the average market price 
-            due to solar's midday generation profile.
-            
-            **Annual Impact:**
-            - Cannibalization Loss: €{cannibalization_loss:,.0f}/year
-            - Negative Price Hours: {negative_price_hours} hours/year
-            
-            **Battery Solution:**
-            Adding battery storage can recover most of this loss by:
-            1. Shifting solar generation to high-price hours (arbitrage)
-            2. Avoiding negative price exposure (curtailment prevention)
-            3. Capturing additional arbitrage opportunities
+⚠️ **Battery Storage Recommended**
+
+Your capture rate is {capture_rate:.1%}, which means your solar plant only captures {capture_rate:.1%} of the average market price due to solar's midday generation profile.
+
+**Annual Impact:**
+- Cannibalization Loss: €{cannibalization_loss:,.0f}/year
+- Negative Price Hours: {negative_price_hours} hours/year
+
+**Battery Solution:**
+Adding battery storage can recover most of this loss by:
+1. Shifting solar generation to high-price hours (arbitrage)
+2. Avoiding negative price exposure (curtailment prevention)
+3. Capturing additional arbitrage opportunities
             """
         else:
             reason = f"""
-            ✅ **Good Capture Rate**
-            
-            Your capture rate is {capture_rate:.1%}, which is relatively healthy.
-            However, battery storage may still provide value through arbitrage 
-            and negative price mitigation.
+✅ **Good Capture Rate**
+
+Your capture rate is {capture_rate:.1%}, which is relatively healthy.
+However, battery storage may still provide value through arbitrage 
+and negative price mitigation.
             """
         
         return {

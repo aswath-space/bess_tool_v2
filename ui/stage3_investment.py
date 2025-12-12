@@ -37,6 +37,8 @@ import streamlit as st
 import plotly.graph_objects as go
 from backend.app.services.financial_service import financial_service
 from ui.progress_indicator import render_stage_header
+from ui.css import get_tooltip_css
+from ui.components import render_metric_card
 import numpy as np
 
 
@@ -69,6 +71,7 @@ def render_stage3(
     # ===================================================================
     # No icon, standard header style as requested
     st.markdown("### Investment Decision")
+    st.markdown(get_tooltip_css(), unsafe_allow_html=True)
     
     # ===================================================================
     # PROJECT SCENARIO DISPLAY
@@ -79,20 +82,45 @@ def render_stage3(
     st.caption(f"Scenario: **{scenario}**")
     
     # Explain the selected scenario
+    # Explain the selected scenario
     if scenario == "Greenfield":
-        st.info("""
-        **Greenfield Project**
-        - New solar + battery installation
-        - IRR calculated on total investment (PV + BESS)
-        - Revenue = Full PV + BESS revenue
-        """)
+        st.markdown("""
+        <div style="
+            background-color: rgba(59, 130, 246, 0.05); 
+            padding: 1rem; 
+            border-radius: 8px; 
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            margin-bottom: 1rem;
+        ">
+            <div style="font-size: 1rem; color: var(--text-main); line-height: 1.6;">
+                <strong>Greenfield Project</strong>
+                <ul style="margin-top: 0.5rem; margin-bottom: 0px; padding-left: 1.5rem;">
+                    <li>New solar + battery installation</li>
+                    <li>IRR calculated on total investment (PV + BESS)</li>
+                    <li>Revenue = Full PV + BESS revenue</li>
+                </ul>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
     else:
-        st.info("""
-        **Brownfield Project**
-        - Adding battery to existing solar park
-        - IRR calculated on BESS investment only
-        - Revenue = Incremental revenue from adding BESS
-        """)
+        st.markdown("""
+        <div style="
+            background-color: rgba(59, 130, 246, 0.05); 
+            padding: 1rem; 
+            border-radius: 8px; 
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            margin-bottom: 1rem;
+        ">
+            <div style="font-size: 1rem; color: var(--text-main); line-height: 1.6;">
+                <strong>Brownfield Project</strong>
+                <ul style="margin-top: 0.5rem; margin-bottom: 0px; padding-left: 1.5rem;">
+                    <li>Adding battery to existing solar park</li>
+                    <li>IRR calculated on BESS investment only</li>
+                    <li>Revenue = Incremental revenue from adding BESS</li>
+                </ul>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
     
     # ===================================================================
     # PROJECT PARAMETERS
@@ -206,66 +234,109 @@ def render_stage3(
             irr_status = "Review Required"
             irr_color = "inverse"
         
-        st.metric(
-            "Project IRR",
-            f"{irr_pct:.1f}%" if irr_pct else "N/A",
+        st.markdown(render_metric_card(
+            label="Project IRR",
+            value=f"{irr_pct:.1f}%" if irr_pct else "N/A",
             delta=irr_status,
             delta_color=irr_color,
-            help="Internal Rate of Return - the 'true' annual return on investment"
-        )
+            help_text="Internal Rate of Return - the 'true' annual return on investment"
+        ), unsafe_allow_html=True)
     
     with col2:
         # NPV
         npv_eur = irr_result['npv_eur']
         npv_millions = npv_eur / 1e6
         
-        st.metric(
-            f"NPV @ {discount_rate:.0f}%",
-            f"€{npv_millions:.2f}M",
+        st.markdown(render_metric_card(
+            label=f"NPV @ {discount_rate:.0f}%",
+            value=f"€{npv_millions:.2f}M",
             delta="Positive" if npv_eur > 0 else "Negative",
             delta_color="normal" if npv_eur > 0 else "inverse",
-            help="Net Present Value - total value in today's money"
-        )
+            help_text="Net Present Value - total value in today's money"
+        ), unsafe_allow_html=True)
     
     with col3:
         # Payback Period
         payback = irr_result['payback_period_simple_years']
         
-        st.metric(
-            "Payback Period",
-            f"{payback:.1f} years" if payback else "N/A",
-            help="Simple payback - years to recover initial investment"
-        )
+        st.markdown(render_metric_card(
+            label="Payback Period",
+            value=f"{payback:.1f} years" if payback else "N/A",
+            help_text="Simple payback - years to recover initial investment"
+        ), unsafe_allow_html=True)
     
-    # Show investment breakdown
-    st.caption(f"**Investment:** {irr_result['capex_description']}")
-    st.caption(f"**1st Year Revenue:** €{irr_result['first_year_revenue_eur']:,.0f}")
+    # Show investment breakdown in a clean info box
+    st.markdown("<div style='margin-top: 1rem;'></div>", unsafe_allow_html=True)
+    st.markdown(f"""
+    <div style="
+        background-color: rgba(59, 130, 246, 0.05); 
+        padding: 1rem; 
+        border-radius: 8px; 
+        border: 1px solid rgba(59, 130, 246, 0.2);
+        margin-bottom: 1rem;
+    ">
+        <div style="font-size: 1rem; color: var(--text-main); line-height: 1.6;">
+            <strong>💰 Investment Summary</strong>
+            <ul style="margin-top: 0.5rem; margin-bottom: 0px; padding-left: 1.5rem;">
+                <li><strong>Initial Investment:</strong> {irr_result['capex_description']}</li>
+                <li><strong>1st Year Revenue:</strong> €{irr_result['first_year_revenue_eur']:,.0f}</li>
+            </ul>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
     
     # ===================================================================
     # INTERPRETATION GUIDE
     # ===================================================================
     if irr_pct:
         if irr_pct > 12:
-            st.success(f"""
-            ✅ **Strong Investment Case**
-            
-            Your IRR of {irr_pct:.1f}% significantly exceeds typical cost of capital 
-            (~8%) and is excellent for a utility-scale renewable energy project.
-            """)
+            st.markdown(f"""
+            <div style="
+                background-color: rgba(16, 185, 129, 0.05); 
+                padding: 1rem; 
+                border-radius: 8px; 
+                border: 1px solid rgba(16, 185, 129, 0.2);
+                margin-bottom: 1rem;
+            ">
+                <div style="font-size: 1rem; color: var(--text-main); line-height: 1.6;">
+                    <strong style="color: #059669;">✅ Strong Investment Case</strong><br>
+                    Your IRR of {irr_pct:.1f}% significantly exceeds typical cost of capital 
+                    (~8%) and is excellent for a utility-scale renewable energy project.
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
         elif irr_pct > 8:
-            st.info(f"""
-            ℹ️ **Viable Investment**
-            
-            Your IRR of {irr_pct:.1f}% is above typical cost of capital. This represents 
-            a financially viable project, though sensitivity to assumptions should be checked.
-            """)
+            st.markdown(f"""
+            <div style="
+                background-color: rgba(59, 130, 246, 0.05); 
+                padding: 1rem; 
+                border-radius: 8px; 
+                border: 1px solid rgba(59, 130, 246, 0.2);
+                margin-bottom: 1rem;
+            ">
+                <div style="font-size: 1rem; color: var(--text-main); line-height: 1.6;">
+                    <strong style="color: #2563eb;">ℹ️ Viable Investment</strong><br>
+                    Your IRR of {irr_pct:.1f}% is above typical cost of capital. This represents 
+                    a financially viable project, though sensitivity to assumptions should be checked.
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
         else:
-            st.warning(f"""
-            ⚠️ **Review Required**
-            
-            Your IRR of {irr_pct:.1f}% is below typical cost of capital thresholds. 
-            Consider adjusting project parameters or reviewing cost assumptions.
-            """)
+            st.markdown(f"""
+            <div style="
+                background-color: rgba(239, 68, 68, 0.05); 
+                padding: 1rem; 
+                border-radius: 8px; 
+                border: 1px solid rgba(239, 68, 68, 0.2);
+                margin-bottom: 1rem;
+            ">
+                <div style="font-size: 1rem; color: var(--text-main); line-height: 1.6;">
+                    <strong style="color: #b91c1c;">⚠️ Review Required</strong><br>
+                    Your IRR of {irr_pct:.1f}% is below typical cost of capital thresholds. 
+                    Consider adjusting project parameters or reviewing cost assumptions.
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
     
     # ===================================================================
     # REAL-TIME SENSITIVITY ANALYSIS
@@ -356,25 +427,25 @@ def render_stage3(
         col1, col2, col3 = st.columns(3)
         
         with col1:
-            st.metric(
-                "Adjusted IRR",
-                f"{adjusted_irr:.1f}%" if adjusted_irr else "N/A",
+            st.markdown(render_metric_card(
+                label="Adjusted IRR",
+                value=f"{adjusted_irr:.1f}%" if adjusted_irr else "N/A",
                 delta=f"{irr_change:+.1f}%",
                 delta_color="normal" if irr_change >= 0 else "inverse"
-            )
+            ), unsafe_allow_html=True)
         
         with col2:
-            st.metric(
-                "Adjusted NPV",
-                f"€{adjusted_irr_result['npv_eur']/1e6:.2f}M"
-            )
+            st.markdown(render_metric_card(
+                label="Adjusted NPV",
+                value=f"€{adjusted_irr_result['npv_eur']/1e6:.2f}M"
+            ), unsafe_allow_html=True)
         
         with col3:
             # Show new CAPEX
-            st.metric(
-                "New Battery CAPEX",
-                f"€{adjusted_irr_result['capex_bess_eur']/1e6:.2f}M"
-            )
+            st.markdown(render_metric_card(
+                label="New Battery CAPEX",
+                value=f"€{adjusted_irr_result['capex_bess_eur']/1e6:.2f}M"
+            ), unsafe_allow_html=True)
     
     # ===================================================================
     # SENSITIVITY CHARTS

@@ -18,7 +18,7 @@ class TestBaselineService:
     def sample_pv_data(self):
         """Create sample PV generation data."""
         # 24 hours of sample data
-        hours = pd.date_range('2024-01-01', periods=24, freq='H')
+        hours = pd.date_range('2024-01-01', periods=24, freq='h', tz='UTC')
         pv_power = []
         
         # Simulate solar generation pattern (peak at noon)
@@ -29,26 +29,29 @@ class TestBaselineService:
             else:
                 pv_power.append(0)
         
-        return pd.DataFrame({
-            'time': hours,
+        df = pd.DataFrame({
             'pv_power_kw': pv_power
-        })
+        }, index=hours)
+        return df
     
     @pytest.fixture
     def sample_price_data(self):
         """Create sample price data."""
-        # 24 hours of sample prices with lower prices during solar hours
+        # 24 hours of sample prices
+        hours = pd.date_range('2024-01-01', periods=24, freq='h', tz='UTC')
         prices = []
-        for hour in range(24):
+        for i, hour in enumerate(range(24)):
             if 10 <= hour <= 16:
-                # Lower prices during solar peak (cannibalization effect)
-                prices.append({'price': 50.0 + np.random.uniform(-5, 5)})
+                price = 50.0
             elif 17 <= hour <= 21:
-                # Higher prices in evening
-                prices.append({'price': 120.0 + np.random.uniform(-10, 10)})
+                price = 120.0
             else:
-                # Moderate prices at night
-                prices.append({'price': 80.0 + np.random.uniform(-5, 5)})
+                price = 80.0
+            
+            prices.append({
+                'timestamp': hours[i].isoformat(),
+                'price': price
+            })
         
         return prices
     
@@ -91,10 +94,12 @@ class TestBaselineService:
     
     def test_zero_generation(self):
         """Test handling of zero generation."""
+        hours = pd.date_range('2024-01-01', periods=24, freq='h', tz='UTC')
         pv_data = pd.DataFrame({
             'pv_power_kw': [0] * 24
-        })
-        price_data = [{'price': 50.0}] * 24
+        }, index=hours)
+        
+        price_data = [{'timestamp': h.isoformat(), 'price': 50.0} for h in hours]
         
         result = baseline_service.calculate_pv_baseline(pv_data, price_data)
         
@@ -104,11 +109,14 @@ class TestBaselineService:
     
     def test_negative_prices(self):
         """Test handling of negative prices."""
+        hours = pd.date_range('2024-01-01', periods=24, freq='h', tz='UTC')
         pv_data = pd.DataFrame({
             'pv_power_kw': [1000] * 24  # Constant generation
-        })
+        }, index=hours)
+        
         # Some negative prices
-        price_data = [{'price': -10.0}] * 12 + [{'price': 100.0}] * 12
+        prices_vals = [-10.0] * 12 + [100.0] * 12
+        price_data = [{'timestamp': h.isoformat(), 'price': p} for h, p in zip(hours, prices_vals)]
         
         result = baseline_service.calculate_pv_baseline(pv_data, price_data)
         
@@ -118,14 +126,16 @@ class TestBaselineService:
     
     def test_battery_recommendation_low_capture_rate(self):
         """Test battery recommendation for low capture rate."""
+        hours = pd.date_range('2024-01-01', periods=24, freq='h', tz='UTC')
         # Create scenario with low capture rate
+        pv_vals = [0]*6 + [1000]*12 + [0]*6
         pv_data = pd.DataFrame({
-            'pv_power_kw': [0]*6 + [1000]*12 + [0]*6  # Solar only during day
-        })
+            'pv_power_kw': pv_vals
+        }, index=hours)
+        
         # Low prices during solar hours, high at night
-        price_data = ([{'price': 30.0}] * 6 + 
-                      [{'price': 20.0}] * 12 +  # Low during solar
-                      [{'price': 120.0}] * 6)
+        price_vals = [30.0]*6 + [20.0]*12 + [120.0]*6
+        price_data = [{'timestamp': h.isoformat(), 'price': p} for h, p in zip(hours, price_vals)]
         
         baseline_result = baseline_service.calculate_pv_baseline(pv_data, price_data)
         recommendation = baseline_service.should_recommend_battery(baseline_result)
@@ -136,12 +146,15 @@ class TestBaselineService:
     
     def test_battery_recommendation_good_capture_rate(self):
         """Test battery recommendation for good capture rate."""
+        hours = pd.date_range('2024-01-01', periods=24, freq='h', tz='UTC')
         # Create scenario with good capture rate (flat prices)
+        pv_vals = [0]*6 + [1000]*12 + [0]*6
         pv_data = pd.DataFrame({
-            'pv_power_kw': [0]*6 + [1000]*12 + [0]*6
-        })
+            'pv_power_kw': pv_vals
+        }, index=hours)
+        
         # Relatively flat prices
-        price_data = [{'price': 80.0 + np.random.uniform(-5, 5)}] * 24
+        price_data = [{'timestamp': h.isoformat(), 'price': 80.0} for h in hours]
         
         baseline_result = baseline_service.calculate_pv_baseline(pv_data, price_data)
         recommendation = baseline_service.should_recommend_battery(baseline_result)
@@ -153,26 +166,34 @@ class TestBaselineService:
 class TestBaselineServiceEdgeCases:
     """Test edge cases and error handling."""
     
-    def test_mismatched_data_lengths(self):
-        """Test handling when PV data and price data have different lengths."""
+
+    def test_mismatched_data_ranges(self):
+        """Test handling when PV data and price data have non-overlapping ranges (should raise error)."""
+        hours_pv = pd.date_range('2024-01-01', periods=24, freq='h', tz='UTC')
         pv_data = pd.DataFrame({
-            'pv_power_kw': [100] * 100
-        })
-        price_data = [{'price': 50.0}] * 50  # Fewer price points
+            'pv_power_kw': [100] * 24
+        }, index=hours_pv)
         
-        # Should not crash, uses minimum length
-        result = baseline_service.calculate_pv_baseline(pv_data, price_data)
-        assert result is not None
+        # Prices for different day
+        hours_prices = pd.date_range('2025-01-01', periods=24, freq='h', tz='UTC')
+        price_data = [{'timestamp': h.isoformat(), 'price': 50.0} for h in hours_prices]
+        
+        # Should raise ValueError due to empty intersection
+        with pytest.raises(ValueError, match="No overlapping data found"):
+            baseline_service.calculate_pv_baseline(pv_data, price_data)
     
     def test_very_high_cannibalization(self):
         """Test extreme cannibalization scenario."""
+        hours = pd.date_range('2024-01-01', periods=24, freq='h', tz='UTC')
         # All generation during lowest price hours
+        pv_vals = [1000]*12 + [0]*12
         pv_data = pd.DataFrame({
-            'pv_power_kw': [1000]*12 + [0]*12
-        })
+            'pv_power_kw': pv_vals
+        }, index=hours)
+        
         # Extremely low prices when solar generates
-        price_data = ([{'price': 1.0}] * 12 + 
-                      [{'price': 200.0}] * 12)
+        price_vals = [1.0]*12 + [200.0]*12
+        price_data = [{'timestamp': h.isoformat(), 'price': p} for h, p in zip(hours, price_vals)]
         
         result = baseline_service.calculate_pv_baseline(pv_data, price_data)
         
