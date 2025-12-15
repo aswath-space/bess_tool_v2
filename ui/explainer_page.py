@@ -49,16 +49,15 @@ def render_explainer_page():
 def render_cannibalization_theory():
     """Explain solar cannibalization effect."""
     
-    st.header("☀️ Solar Cannibalization Effect")
+    st.header("☀️ Market Value Deflation (Cannibalization)")
     
     st.markdown("""
-    ### What is Solar Cannibalization?
+    ### What is Solar Value Deflation?
     
-    As solar penetration increases in electricity markets, a paradoxical effect emerges:
-    **more solar capacity leads to lower revenues per unit**. This is called the
-    "solar cannibalization effect" or "value deflation."
+    As solar penetration increases in electricity markets, a structural price depression occurs during peak generation hours. 
+    This phenomenon, often called **Cannibalization**, means that **more renewable capacity leads to lower realized revenues per MWh**.
     
-    ### Why Does This Happen?
+    ### The Mechanism
     
     1. **Solar generates during the same hours** (midday when the sun shines)
     2. **Increased supply during those hours** pushes prices down
@@ -102,22 +101,24 @@ def render_cannibalization_theory():
     
     st.markdown("""
     ### Capture Rate: The Critical Metric
-    
+
     The **capture rate** is the ratio of capture price to baseload price:
-    
+    """)
+
     st.latex(r'''
     Capture\ Rate = \frac{P_{capture}}{P_{baseload}} \times 100\%
     ''')
-    
+
+    st.markdown("""
     **Interpretation:**
     - **90%+**: Excellent - minimal cannibalization
     - **70-90%**: Moderate - typical for mature solar markets
     - **<70%**: Significant - battery storage highly recommended
-    
+
     ### How Battery Storage Helps
-    
+
     Battery storage mitigates cannibalization by:
-    
+
     1. **Time-shifting generation**: Store midday solar, sell during evening peaks
     2. **Avoiding negative prices**: Charge when prices are negative (instead of paying to export)
     3. **Capturing arbitrage**: Buy low, sell high using price spreads
@@ -293,20 +294,22 @@ def render_battery_economics():
     - **Warranty**: Typically 10 years, 70% capacity
     
     ---
-    
+
     ### Round-Trip Efficiency (RTE)
-    
+
     The percentage of energy put into the battery that can be retrieved.
-    
+    """)
+
     st.latex(r'''
     RTE = \frac{Energy_{out}}{Energy_{in}} \times 100\%
     ''')
-    
+
+    st.markdown("""
     **Typical values (2025):**
     - Lithium-ion (LFP): 92-95%
     - Flow batteries: 70-80%
     - Hydrogen: 30-40%
-    
+
     Our model assumes **90% AC-to-AC efficiency**, accounting for inverter losses, auxiliary consumption (HVAC), and cell hysteresis.
     """)
 
@@ -355,38 +358,51 @@ def render_optimization_theory():
     - `SoC[t]` (Continuous): State of charge (MWh)
     
     #### Constraints
-    
+
     Physical and operational limits:
-    
+
     **1. Binary Logic (Mutually Exclusive):**
+    """)
+
     st.latex(r'''
     Is\_Charging_t + Is\_Discharging_t \le 1
     ''')
     st.caption("Ensures battery never charges and discharges at the same time.")
-    
+
+    st.markdown("""
     **2. Power Limits:**
+    """)
+
     st.latex(r'''
     0 \le Charge_t \le P_{max} \times Is\_Charging_t
     ''')
+
     st.latex(r'''
     0 \le Discharge_t \le P_{max} \times Is\_Discharging_t
     ''')
-    
+
+    st.markdown("""
     **3. Energy Balance:**
+    """)
+
     st.latex(r'''
     SoC_{t+1} = SoC_t + (\eta \times Charge_t) - \frac{Discharge_t}{\eta}
     ''')
-    
+
+    st.markdown("""
     **4. State of Charge Limits:**
+    """)
+
     st.latex(r'''
     SoC_{min} \le SoC_t \le SoC_{max}
     ''')
     st.caption("We enforce a minimum reserve (e.g., 5%) to protect battery health.")
-    
+
+    st.markdown("""
     ---
-    
+
     ### Why MILP is Superior
-    
+
     """)
     
     col1, col2 = st.columns(2)
@@ -500,18 +516,17 @@ def render_market_dynamics():
     
     ---
     
-    ### Renewable Integration Challenges
+    ### Renewable Integration Dynamics
     
-    #### Duck Curve Problem
+    #### Structural Price Depression
     
     As solar penetration increases:
     
-    1. **Midday oversupply**: Solar floods the market
-    2. **Price depression**: Wholesale prices crash
-    3. **Evening ramp**: Steep demand increase after sunset
-    4. **Ramping challenge**: Conventional plants struggle to ramp up quickly
+    1.  **Merit Order Effect**: Zero-marginal cost solar pushes expensive thermal generators out of the stack.
+    2.  **Midday Price Collapse**: Wholesale prices drop significantly during peak solar hours (10:00 - 15:00).
+    3.  **Ramping Volatility**: Steep gradients in residual load require flexible dispatchable capacity.
     
-    **Battery storage solution:** Absorb midday oversupply, discharge during evening ramp.
+    **BESS Value Proposition:** BESS acts as a "volatility dampener," absorbing distressed midday MWh and discharging during scarce evening hours.
     
     #### Negative Prices
     
@@ -571,68 +586,63 @@ def render_financial_metrics():
     # IRR
     st.markdown("""
     ---
-    
+
     #### Internal Rate of Return (IRR)
-    
-    **Definition:** The discount rate at which NPV = 0 (break-even rate)
-    
+
+    **Definition:** The discount rate that makes the Net Present Value (NPV) of all cash flows equal to zero. It represents the project's **intrinsic yield**.
+
     **Formula:**
+    """)
+
     st.latex(r'''
     0 = -CAPEX + \sum_{t=1}^{T} \frac{CashFlow_t}{(1 + IRR)^t}
     ''')
-    
-    **Interpretation:**
-    - **15%+**: Excellent return, very attractive
-    - **10-15%**: Good return, typical for renewables
-    - **8-10%**: Moderate return, acceptable
-    - **<8%**: Low return, may not justify risk
-    
-    **Use case:**
-    - Compare to hurdle rate (required return)
-    - Compare to alternative investments
-    - Assess project viability
-    
-    **Advantages:**
-    - Industry standard metric
-    - Easy to understand (percentage return)
-    - Accounts for time value of money
-    
-    **Limitations:**
-    - Assumes reinvestment at IRR (unrealistic)
-    - Can have multiple solutions for complex cash flows
-    - Doesn't show absolute value (€)
+
+    st.markdown("""
+    **Benchmarks (Utility Scale):**
+    - **> 10%**: Robust (Strong Buy)
+    - **6-10%**: Moderate (Hold/Buy depending on risk)
+    - **< 6%**: Marginal (Requires optimization)
+
+    **Strategic Utility:**
+    - Primary metric for capital allocation ranking.
+    - Used to compare against the Weighted Average Cost of Capital (WACC).
+    - If IRR > WACC, the project creates shareholder value.
     """)
     
     # NPV
     st.markdown("""
     ---
-    
+
     #### Net Present Value (NPV)
-    
+
     **Definition:** Present value of all cash flows minus initial investment
-    
+
     **Formula:**
+    """)
+
     st.latex(r'''
     NPV = -CAPEX + \sum_{t=1}^{T} \frac{CashFlow_t}{(1 + WACC)^t}
     ''')
-    
+
+    st.markdown("""
     Where WACC = Weighted Average Cost of Capital (discount rate)
-    
+
     **Interpretation:**
     - **NPV > 0**: Project creates value, accept
     - **NPV = 0**: Break-even, indifferent
     - **NPV < 0**: Project destroys value, reject
-    
+
     **Use case:**
     - Absolute value creation (€)
     - Compare mutually exclusive projects
     - Capital budgeting decisions
-    
+
     **Advantages:**
     - Shows absolute value in euros
     - Consistent with shareholder value maximization
     - Additive (can sum NPVs of projects)
-    
+
     **Limitations:**
     - Requires accurate discount rate (WACC)
     - Harder to interpret than IRR (€ vs %)

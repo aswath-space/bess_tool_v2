@@ -1,5 +1,6 @@
 
 import streamlit as st
+import html
 
 def render_metric_card(label, value, delta=None, delta_color="normal", help_text=None, subtext=None):
     """
@@ -41,21 +42,29 @@ def render_metric_card(label, value, delta=None, delta_color="normal", help_text
         is_numeric_delta = clean_delta and (clean_delta[0].isdigit() or clean_delta[0] in ['+', '-', '€', '$', '£', '¥'])
         if not is_numeric_delta:
             icon = ""
-        
-        delta_html = f'<div style="color: {color}; font-size: 0.875rem; font-weight: 500; margin-left: auto;">{icon} {clean_delta}</div>'
+
+        # HTML escape delta text
+        safe_delta = html.escape(clean_delta)
+        delta_html = f'<div style="color: {color}; font-size: 0.875rem; font-weight: 500; margin-left: auto;">{icon} {safe_delta}</div>'
+
+    # HTML escape all text parameters to prevent XSS and HTML injection
+    safe_label = html.escape(str(label))
+    safe_value = html.escape(str(value))
 
     help_html = ""
     if help_text:
         # CSS Tooltip Approach with SVG Icon
         # SVG info icon (outline version)
+        safe_help_text = html.escape(str(help_text))
         svg_icon = '''<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.6; margin-left: 4px; vertical-align: text-bottom;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>'''
-        help_html = f'''<div class="tooltip">{svg_icon}<span class="tooltiptext">{help_text}</span></div>'''
+        help_html = f'''<div class="tooltip">{svg_icon}<span class="tooltiptext">{safe_help_text}</span></div>'''
 
     subtext_html = ""
     if subtext:
         # Render subtext if provided (caller responsibility to manage height consistency)
-        subtext_html = f'<div style="font-size: 0.75rem; color: gray; margin-top: 0.25rem;">{subtext}</div>'
-    
+        safe_subtext = html.escape(str(subtext))
+        subtext_html = f'<div style="font-size: 0.75rem; color: gray; margin-top: 0.25rem;">{safe_subtext}</div>'
+
     html_content = f"""
 <div style="
     background-color: var(--bg-secondary);
@@ -71,10 +80,10 @@ def render_metric_card(label, value, delta=None, delta_color="normal", help_text
     margin-bottom: 1rem;
 ">
     <div style="font-size: 0.875rem; font-weight: 500; opacity: 0.8; margin-bottom: 0.5rem; display: flex; align-items: center;">
-        {label} {help_html}
+        {safe_label} {help_html}
     </div>
     <div style="display: flex; align-items: baseline; gap: 0.5rem; flex-wrap: wrap;">
-        <div style="font-size: 1.75rem; font-weight: 600; color: var(--text-main); white-space: nowrap;">{value}</div>
+        <div style="font-size: 1.75rem; font-weight: 600; color: var(--text-main); white-space: nowrap;">{safe_value}</div>
         {delta_html}
     </div>
     {subtext_html}

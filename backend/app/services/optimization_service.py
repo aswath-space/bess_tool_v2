@@ -123,8 +123,8 @@ class OptimizationService:
         
         prices_eur_mwh = np.array([p['price'] for p in price_data[:T]])
         df['price_eur_mwh'] = prices_eur_mwh
-        
-        pv_generation_mw = df['pv_power_kw'].values / 1000  # Shape: (T,)
+
+        pv_generation_mw = np.array(df['pv_power_kw'].values, dtype=float) / 1000  # Shape: (T,)
         
         # ===================================================================
         # STEP 2: Define Decision Variables (MILP)
@@ -212,9 +212,10 @@ class OptimizationService:
             # but specifying helps debugging.
             
             solver_opts = {'verbose': False}
-            if 'HIGHS' in cp.installed_solvers():
+            installed = list(cp.installed_solvers())
+            if 'HIGHS' in installed:
                 problem.solve(solver=cp.HIGHS, **solver_opts)
-            elif 'CBC' in cp.installed_solvers():
+            elif 'CBC' in installed:
                 problem.solve(solver=cp.CBC, **solver_opts)
             else:
                  # Fallback to default (likely GLPK_MI if installed, or error)
@@ -230,15 +231,18 @@ class OptimizationService:
         # ===================================================================
         # STEP 7: Extract Results
         # ===================================================================
-        optimal_p_charge = p_charge.value
-        optimal_p_discharge = p_discharge.value
-        optimal_soc = soc.value[:-1]
-        optimal_p_grid = p_grid.value
-        
+        if p_charge.value is None or p_discharge.value is None or soc.value is None or p_grid.value is None:
+            raise ValueError("Optimization failed: solution variables are None")
+
+        optimal_p_charge = np.array(p_charge.value, dtype=float)
+        optimal_p_discharge = np.array(p_discharge.value, dtype=float)
+        optimal_soc = np.array(soc.value[:-1], dtype=float)
+        optimal_p_grid = np.array(p_grid.value, dtype=float)
+
         # Recalculate financial metrics (Revenue without penalty for display)
         # We want to show the user the pure market revenue, and perhaps show degradation as a cost line item
         realized_revenue = np.sum(prices_eur_mwh * optimal_p_grid)
-        
+
         # ===================================================================
         # STEP 8: Store Results
         # ===================================================================

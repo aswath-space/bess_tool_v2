@@ -46,10 +46,9 @@ import pandas as pd
 import json
 import zipfile
 import io
-from datetime import datetime
+from datetime import datetime, timedelta
 import sys
 import os
-from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
 # ===================================================================
@@ -82,7 +81,6 @@ except ImportError as e:
 # ===================================================================
 # IMPORTS - UI Components
 # ===================================================================
-from ui.progress_indicator import render_progress_indicator
 from ui.stage1_baseline import render_stage1_inputs, render_stage1_results
 from ui.stage2_battery import render_stage2_inputs, render_stage2_results
 from ui.stage3_investment import render_stage3
@@ -198,12 +196,14 @@ def clear_cache_and_reset():
 col_title, col_download = st.columns([5, 1])
 
 with col_title:
-    st.title("⚡ PV-BESS Revenue Optimization")
+    st.title("⚡ PV-BESS Revenue Optimizer")
     st.markdown("""
     <div style="padding: 1.25rem; background: linear-gradient(135deg, rgba(59, 130, 246, 0.05), rgba(16, 185, 129, 0.05)); 
     border-radius: 8px; margin-bottom: 1rem; border-left: 4px solid #3b82f6;">
         <p style="margin: 0; color: #475569; font-size: 1rem; line-height: 1.6;">
-            Quantify revenue potential for solar + battery storage assets using real market data.
+            <strong>Maximize Asset Value in Volatile Power Markets</strong><br>
+            As renewable penetration saturates day-ahead markets, solar assets face increasing <em>value deflation</em> and negative price exposure. 
+            This tool quantifies the revenue uplift from integrating Battery Energy Storage Systems (BESS) to unlock arbitrage and capacity retention value.
         </p>
     </div>
     """, unsafe_allow_html=True)

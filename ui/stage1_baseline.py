@@ -317,88 +317,88 @@ def render_stage1_results(baseline_result, config):
     # CANNIBALIZATION EXPLANATION
     # ===================================================================
     # ===================================================================
-    # CANNIBALIZATION EXPLANATION
+    # CONSOLIDATED ANALYSIS BOX
     # ===================================================================
-    # Calculate cannibal loss metrics
+    
+    # Calculate key data points
     cannib_loss_annual = baseline_result['cannibalization_loss_eur_annual']
     cannib_loss_per_mwh = baseline_result['cannibalization_loss_eur_mwh']
+    negative_hours = baseline_result['negative_price_hours']
+    negative_loss = baseline_result.get('negative_price_revenue_loss', 0)
+    capture_rate_pct = baseline_result['capture_rate'] * 100
     
-    # Show concise explanation
-    # Show concise explanation with enhanced styling
-    if cannib_loss_annual > 0:
-        # AMBER styling to match the system warning style (similar to negative price RED box)
-        st.markdown(f"""
-        <div style="
-            background-color: rgba(245, 158, 11, 0.05); 
-            padding: 1rem; 
-            border-radius: 8px; 
-            border: 1px solid rgba(245, 158, 11, 0.2);
-            margin-top: 0.5rem;
-        ">
-            <p style="font-size: 1.05rem; line-height: 1.6; color: var(--text-main); margin: 0;">
-                <strong style="color: #d97706;">📉 The "Duck Curve" Effect:</strong><br>
-                Solar generation peaks during low-price hours (midday), reducing your average revenue by 
-                <strong>€{cannib_loss_per_mwh:.1f}/MWh</strong> (totaling <strong>€{cannib_loss_annual:,.0f}/year</strong>). 
-                Battery storage enables <em>price arbitrage</em>: storing cheap solar energy to sell when prices are high.
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    # ===================================================================
-    # NEGATIVE PRICE HANDLING
-    # ===================================================================
-    if baseline_result['negative_price_hours'] > 0:
-        st.markdown(f"""
-        <div style="margin-top: 0.5rem; padding: 1rem; border-radius: 8px; background-color: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.2);">
-            <p style="font-size: 1.05rem; line-height: 1.6; color: #b91c1c; margin: 0;">
-                ⚠️ <strong>{baseline_result['negative_price_hours']} hours of negative prices detected</strong><br>
-                Estimated loss: <strong>€{baseline_result['negative_price_revenue_loss']:,.0f}</strong>. 
-                Battery storage eliminates these curtailment losses by charging during negative price periods.
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    # ===================================================================
-    # BATTERY RECOMMENDATION
-    # ===================================================================
-    st.markdown("<div style='height: 2rem;'></div>", unsafe_allow_html=True)
-    
+    # Recommendation Logic
     recommendation = baseline_service.should_recommend_battery(
         baseline_result,
-        threshold=0.70  # User-specified 70% threshold
+        threshold=0.70
     )
     
+    # Determine Status Color/Icon
+    if capture_rate_pct < 70 or negative_hours > 100:
+        box_style = "border: 1px solid rgba(245, 158, 11, 0.4); background-color: rgba(245, 158, 11, 0.05);" # Amber
+        status_icon = "⚠️"
+        status_title = "Optimization Opportunity Detected"
+        text_color = "#d97706"
+    else:
+        box_style = "border: 1px solid rgba(16, 185, 129, 0.4); background-color: rgba(16, 185, 129, 0.05);" # Green
+        status_icon = "✅"
+        status_title = "Asset Performing Well"
+        text_color = "#059669"
+
+    # Build negative price section conditionally (to avoid nested f-strings)
+    # IMPORTANT: No leading whitespace to prevent Streamlit from treating it as code
+    negative_price_html = ""
+    if negative_hours and negative_hours > 0:
+        negative_price_html = f"""<div style="border-left: 3px solid #ef4444; padding-left: 1rem;">
+<strong style="color: #b91c1c;">⚡ Negative Price Exposure</strong>
+<p style="margin: 0.25rem 0 0 0; color: var(--text-secondary); font-size: 0.95rem;">
+Detected <strong>{negative_hours if negative_hours is not None else 0} hours</strong> of negative prices, resulting in <strong>€{negative_loss if negative_loss is not None else 0:,.0f}</strong> of potential revenue loss/curtailment.
+</p>
+</div>"""
+
+    # Convert markdown in recommendation reason to HTML (since it's being used in HTML context)
+    # The reason contains markdown like **text** which needs to be converted
+    reason_text = recommendation['reason']
+    # Replace markdown bold with HTML strong tags
+    import re
+    reason_html = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', reason_text)
+    # Replace newlines with <br> for proper HTML rendering
+    reason_html = reason_html.replace('\n', '<br>')
+
+    # Build the complete HTML string (all on fewer lines to avoid whitespace issues)
+    html_content = f"""<div style="{box_style} padding: 1.5rem; border-radius: 12px; margin-top: 1rem; margin-bottom: 2rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+<h3 style="color: {text_color}; margin-top: 0; margin-bottom: 1rem; font-size: 1.25rem; display: flex; align-items: center;">
+<span style="margin-right: 0.5rem; font-size: 1.5rem;">{status_icon}</span> {status_title}
+</h3>
+<div style="display: grid; grid-template-columns: 1fr; gap: 1rem;">
+<div style="border-left: 3px solid {text_color}; padding-left: 1rem;">
+<strong style="color: var(--text-main);">📉 Market Value Deflation</strong>
+<p style="margin: 0.25rem 0 0 0; color: var(--text-secondary); font-size: 0.95rem;">
+Solar concentration during low-price hours is causing a <strong>capture rate erosion</strong> of <strong>€{cannib_loss_per_mwh:.1f}/MWh</strong> relative to baseload. Adding storage enables <em>price arbitrage</em> to recover this value.
+</p>
+</div>
+{negative_price_html}
+<div style="border-left: 3px solid {text_color}; padding-left: 1rem;">
+<strong style="color: var(--text-main);">💡 Strategic Recommendation</strong>
+<div style="margin: 0.25rem 0 0 0; color: var(--text-secondary); font-size: 0.95rem;">
+{reason_html}
+</div>
+</div>
+</div>
+</div>"""
+
+    st.markdown(html_content, unsafe_allow_html=True)
+    
+    # CTA Button outside the box
     if recommendation['recommend']:
-        st.markdown(f"""
-        <div style="
-            background-color: rgba(245, 158, 11, 0.05); 
-            padding: 1rem; 
-            border-radius: 8px; 
-            border: 1px solid rgba(245, 158, 11, 0.2);
-            margin-bottom: 1rem;
-        ">
-            <div style="font-size: 1rem; color: var(--text-main); line-height: 1.6;">
-                <strong style="color: #d97706;">⚠️ Recommendation:</strong> {recommendation['reason']}
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-        
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
-            add_battery = st.button(
-                "⚡ Add Battery Storage",
-                type="primary",
-                use_container_width=True
-            )
-            
-            if add_battery:
+            if st.button("⚡ Analyze Battery Integration", type="primary", use_container_width=True):
                 st.session_state.show_bess_inputs = True
                 st.session_state.stage = 2
                 st.rerun()
     else:
-        st.success(recommendation['reason'])
-        
-        if st.button("➕ Explore Battery Storage"):
+        if st.button("➕ Explore Battery Storage anyway"):
             st.session_state.show_bess_inputs = True
             st.session_state.stage = 2
             st.rerun()
@@ -465,7 +465,7 @@ def render_cannibalization_chart(baseline_result):
     
     # Update Layout for Stacking
     fig.update_layout(
-        title="Impact of Cannibalization",
+        title="Solar Capture Rate vs. Baseload",
         barmode='stack', # Key change: Stack the bars
         yaxis_title="Price (€/MWh)",
         showlegend=True,

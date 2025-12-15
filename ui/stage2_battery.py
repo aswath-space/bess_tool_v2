@@ -33,6 +33,7 @@ Date: 2025-12-11
 
 import streamlit as st
 import plotly.graph_objects as go
+import html
 from backend.app.services.auto_sizing_service import auto_sizing_service
 from backend.app.services.optimization_service import optimization_service
 from ui.progress_indicator import render_stage_header
@@ -258,14 +259,14 @@ def render_stage2_inputs(pv_capacity_mw):
             st.markdown(render_metric_card("Power", f"{all_options['conservative']['power_mw']} MW"), unsafe_allow_html=True)
             st.markdown(render_metric_card("Capacity", f"{all_options['conservative']['capacity_mwh']} MWh"), unsafe_allow_html=True)
             st.markdown(render_metric_card("Duration", f"{all_options['conservative']['duration_hours']}h"), unsafe_allow_html=True)
-        
+
         with col2:
             st.markdown("**Moderate** ⭐")
             st.markdown(f"<div style='min-height: 12rem; font-size: 0.9em; color: gray;'>{all_options['moderate']['rationale']}</div>", unsafe_allow_html=True)
             st.markdown(render_metric_card("Power", f"{all_options['moderate']['power_mw']} MW"), unsafe_allow_html=True)
             st.markdown(render_metric_card("Capacity", f"{all_options['moderate']['capacity_mwh']} MWh"), unsafe_allow_html=True)
             st.markdown(render_metric_card("Duration", f"{all_options['moderate']['duration_hours']}h"), unsafe_allow_html=True)
-        
+
         with col3:
             st.markdown("**Aggressive**")
             st.markdown(f"<div style='min-height: 12rem; font-size: 0.9em; color: gray;'>{all_options['aggressive']['rationale']}</div>", unsafe_allow_html=True)

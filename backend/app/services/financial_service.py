@@ -70,7 +70,8 @@ class FinancialService:
         project_lifetime_years=None,
         pv_degradation_rate=None,
         battery_degradation_rate=None,
-        baseline_revenue_eur=None
+        baseline_revenue_eur=None,
+        discount_rate=None  # New parameter
     ):
         """
         Calculate Internal Rate of Return (IRR) for the project.
@@ -115,12 +116,16 @@ class FinancialService:
         baseline_revenue_eur : float, optional
             First-year revenue with PV only (required for brownfield)
             
+        discount_rate : float, optional
+            Discount rate for NPV calculation (decimal, e.g., 0.08 for 8%)
+            If None, uses DEFAULT_DISCOUNT_RATE (8%)
+            
         Returns:
         --------
         dict
             IRR results:
             - irr_percent: IRR as percentage (e.g., 12.5 for 12.5%)
-            - npv_at_8_percent: NPV at 8% discount rate (EUR)
+            - npv_eur: NPV at specified discount rate (EUR)
             - cash_flows: List of annual cash flows for transparency
             - capex_total: Total initial investment (EUR)
             - payback_period_years: Simple payback period
@@ -131,7 +136,8 @@ class FinancialService:
         >>>     scenario='greenfield',
         >>>     annual_revenue_eur=4_100_000,
         >>>     pv_config={'capacity_mw': 10.0, 'cost_eur_wp': 0.6},
-        >>>     bess_config={'capacity_mwh': 16.0, 'cost_eur_kwh': 300}
+        >>>     bess_config={'capacity_mwh': 16.0, 'cost_eur_kwh': 300},
+        >>>     discount_rate=0.07
         >>> )
         >>> print(f"IRR: {result['irr_percent']:.1f}%")
         """
@@ -145,6 +151,8 @@ class FinancialService:
             pv_degradation_rate = FinancialService.DEFAULT_PV_DEGRADATION_RATE
         if battery_degradation_rate is None:
             battery_degradation_rate = FinancialService.DEFAULT_BATTERY_DEGRADATION_RATE
+        if discount_rate is None:  # Handle None case
+            discount_rate = FinancialService.DEFAULT_DISCOUNT_RATE
         
         # ===================================================================
         # STEP 2: Calculate CAPEX (Initial Investment)
@@ -230,13 +238,13 @@ class FinancialService:
             irr_percent = None
         
         # ===================================================================
-        # STEP 5: Calculate NPV at 8% Discount Rate
+        # STEP 5: Calculate NPV at Designated Discount Rate
         # ===================================================================
         # NPV tells us the present value of the project in today's EUR
-        # Using the default 8% discount rate as benchmark
+        # Using the user-specified discount rate as hurdle
         # Positive NPV = good, higher is better
-        npv_at_8_percent = npf.npv(
-            FinancialService.DEFAULT_DISCOUNT_RATE,
+        npv_val = npf.npv(
+            discount_rate,
             cash_flows
         )
         
@@ -256,7 +264,7 @@ class FinancialService:
             cumulative_discounted = 0
             discounted_payback_years = None
             for year in range(len(cash_flows)):
-                discounted_cf = cash_flows[year] / (1 + FinancialService.DEFAULT_DISCOUNT_RATE) ** year
+                discounted_cf = cash_flows[year] / (1 + discount_rate) ** year
                 cumulative_discounted += discounted_cf
                 if cumulative_discounted > 0 and discounted_payback_years is None:
                     discounted_payback_years = year
@@ -281,7 +289,7 @@ class FinancialService:
         return {
             # Primary Metrics
             'irr_percent': round(irr_percent, 2) if irr_percent is not None else None,
-            'npv_eur': round(npv_at_8_percent, 2),
+            'npv_eur': round(npv_val, 2),
             'payback_period_simple_years': round(simple_payback_years, 1) if simple_payback_years else None,
             'payback_period_discounted_years': discounted_payback_years,
             
@@ -300,7 +308,7 @@ class FinancialService:
             'scenario': scenario,
             'pv_degradation_rate': pv_degradation_rate,
             'battery_degradation_rate': battery_degradation_rate,
-            'discount_rate_used_for_npv': FinancialService.DEFAULT_DISCOUNT_RATE
+            'discount_rate_used_for_npv': discount_rate
         }
     
     @staticmethod
