@@ -7,8 +7,9 @@ maximize revenue, implementing the core of the PRD's "Battery Solution" stage.
 
 Optimization Approach:
 ---------------------
-We use **Linear Programming (LP)** to solve the battery dispatch problem.
-This is a convex optimization problem that CVXPY can solve efficiently.
+We use **Mixed-Integer Linear Programming (MILP)** to solve the battery dispatch problem.
+This formulation uses binary variables to enforce physical constraints (mutual exclusivity
+of charging and discharging), which CVXPY solves using specialized solvers (HIGHS, CBC).
 
 Problem Formulation:
 -------------------
@@ -31,9 +32,9 @@ Problem Formulation:
 **Revenue Calculation**:
 Revenue = Σ price[t] × p_grid[t]
 
-Why LP Instead of Heuristics?
------------------------------
-The previous heuristic approach used simple rules (charge when price < 20, 
+Why MILP Instead of Heuristics or Simple LP?
+--------------------------------------------
+The previous heuristic approach used simple rules (charge when price < 20,
 discharge when price > 100). This is suboptimal because:
 
 1. **Arbitrary Thresholds**: Price thresholds don't adapt to actual price patterns
@@ -41,7 +42,11 @@ discharge when price > 100). This is suboptimal because:
 3. **Suboptimal Timing**: May charge/discharge at wrong times
 4. **Missed Opportunities**: Doesn't capture all arbitrage potential
 
-LP optimization solves all these issues by considering the entire day/week
+Simple LP without binary variables can produce physically impossible solutions
+where the battery charges and discharges simultaneously. MILP with binary
+variables enforces strict mutual exclusivity between charging and discharging.
+
+MILP optimization solves all these issues by considering the entire year
 simultaneously and finding the globally optimal dispatch schedule.
 
 **Typical Revenue Improvement**: 20-40% higher than simple heuristics
@@ -60,7 +65,7 @@ Alternative Libraries:
 - Pyomo: More features but steeper learning curve
 - Gurobi: Commercial, very fast but requires license
 
-For battery dispatch (a convex problem), CVXPY is the best choice.
+For battery dispatch with physical constraints, CVXPY with MILP is the best choice.
 
 Author: Aswath
 Date: 2025-12-11
@@ -73,10 +78,11 @@ import cvxpy as cp
 
 class OptimizationService:
     """
-    Service for optimizing battery dispatch using Linear Programming.
-    
-    This replaces the previous heuristic approach with a proper LP solver
-    that finds the globally optimal dispatch schedule.
+    Service for optimizing battery dispatch using Mixed-Integer Linear Programming.
+
+    This replaces the previous heuristic approach with a proper MILP solver
+    that finds the globally optimal dispatch schedule while enforcing physical
+    constraints (no simultaneous charging and discharging).
     """
     
     @staticmethod
@@ -218,15 +224,15 @@ class OptimizationService:
             elif 'CBC' in installed:
                 problem.solve(solver=cp.CBC, **solver_opts)
             else:
-                 # Fallback to default (likely GLPK_MI if installed, or error)
-                 print("Warning: No specific MILP solver found (HIGHS/CBC). Letting CVXPY choose.")
-                 problem.solve(**solver_opts)
+                # Fallback to default (likely GLPK_MI if installed, or error)
+                print("Warning: No specific MILP solver found (HIGHS/CBC). Letting CVXPY choose.")
+                problem.solve(**solver_opts)
                  
         except Exception as e:
             raise ValueError(f"Optimization failed: {str(e)}")
         
         if problem.status not in [cp.OPTIMAL, cp.OPTIMAL_INACCURATE]:
-             raise ValueError(f"Optimization failed with status: {problem.status}")
+            raise ValueError(f"Optimization failed with status: {problem.status}")
              
         # ===================================================================
         # STEP 7: Extract Results
@@ -290,11 +296,11 @@ class OptimizationService:
         # Negative prices
         negative_price_hours = (df['price_eur_mwh'] < 0).sum()
         if negative_price_hours > 0:
-             potential_curtailment_kwh = df[df['price_eur_mwh'] < 0]['pv_power_kw'].sum()
-             actual_charge_during_neg_price = df[df['price_eur_mwh'] < 0]['bess_charge_kw'].sum()
+            potential_curtailment_kwh = df[df['price_eur_mwh'] < 0]['pv_power_kw'].sum()
+            actual_charge_during_neg_price = df[df['price_eur_mwh'] < 0]['bess_charge_kw'].sum()
         else:
-             potential_curtailment_kwh = 0
-             actual_charge_during_neg_price = 0
+            potential_curtailment_kwh = 0
+            actual_charge_during_neg_price = 0
              
         # Estimated Arbitrage Revenue
         # (Discharge Energy * Discharge Price) - (Charge Energy * Charge Price)

@@ -1,30 +1,30 @@
 """
-Auto-Sizing Service - Smart Battery Defaults
-=============================================
+Auto-Sizing Service - Battery Sizing Recommendations
+=====================================================
 
-This service provides intelligent recommendations for battery system sizing
-based on the PV installation characteristics. This implements the PRD's
-"Smart Defaults" feature for the battery upsell stage.
+This service provides systematic recommendations for battery system sizing
+based on PV installation characteristics. This implements the recommended
+configuration feature for the battery integration stage.
 
 Key Concepts:
 -------------
-1. **Power Rating (MW)**: How fast the battery can charge/discharge.
-   Rule of thumb: 20-40% of PV capacity to handle midday generation.
+1. **Power Rating (MW)**: Maximum charge/discharge rate.
+   Typical range: 20-40% of PV capacity to accommodate midday generation.
 
-2. **Duration (hours)**: How long the battery can discharge at full power.
-   Common values: 2-4 hours for daily arbitrage applications.
+2. **Duration (hours)**: Discharge time at full power.
+   Typical values: 2-4 hours for daily arbitrage applications.
 
 3. **Capacity (MWh)**: Total energy storage = Power × Duration.
    Example: 4 MW × 4 hours = 16 MWh
 
-4. **C-Rate**: The ratio of power to capacity (1/Duration).
-   Example: 4h duration = 0.25 C-rate (can fully charge/discharge in 4h)
+4. **C-Rate**: Ratio of power to capacity (1/Duration).
+   Example: 4h duration = 0.25 C-rate
 
-Sizing Philosophy:
+Sizing Strategies:
 ------------------
-- Conservative: Smaller battery, lower risk, certain ROI
-- Moderate: Balanced approach (DEFAULT)
-- Aggressive: Larger battery, higher potential revenue, more risk
+- Conservative: Reduced capacity, lower risk, predictable ROI
+- Moderate: Balanced risk-return profile (DEFAULT)
+- Aggressive: Higher capacity, increased revenue potential, elevated risk
 
 Author: Aswath
 Date: 2025-12-11

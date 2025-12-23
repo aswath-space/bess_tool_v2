@@ -1,37 +1,36 @@
 """
-Main Streamlit Application - PV-BESS Investor Guide
-====================================================
+Main Streamlit Application - PV-BESS Revenue Optimization Tool
+===============================================================
 
 This is the main entry point for the application. It implements a
-progressive disclosure single-page flow through three stages:
+progressive disclosure single-page flow through three analysis stages:
 
-Stage 1: PV Baseline (The Anchor)
-- Establish baseline revenue without battery
-- Show cannibalization effect
-- Recommend battery if capture rate < 70%
+Stage 1: PV Baseline Analysis
+- Establish baseline revenue without battery storage
+- Quantify cannibalization effect
+- Recommend battery integration if capture rate < 70%
 
-Stage 2: Battery Solution (The Upsell)
-- Smart battery sizing defaults (40% of PV)
-- LP optimization for revenue maximization
-- Value bridge waterfall chart
+Stage 2: Battery Integration Analysis
+- Recommended battery sizing (40% of PV capacity)
+- MILP optimization for revenue maximization
+- Value bridge visualization
 
-Stage 3: Investment Decision (The Decision)
+Stage 3: Investment Analysis
 - IRR, NPV, payback calculations
-- Real-time sensitivity sliders
-- Greenfield vs brownfield scenarios
+- Interactive sensitivity analysis
+- Greenfield and brownfield scenarios
 
 Key Features:
 -------------
-- Single-page UX (no navigation needed)
-- Progressive disclosure (stages reveal as user progresses)
+- Single-page user experience with progressive disclosure
 - Real-time parameter adjustments
-- All results stay visible for comparison
+- Comprehensive results comparison across stages
 
 Session State Management:
 -------------------------
 st.session_state tracks:
 - stage: Current stage number (1, 2, or 3)
-- show_bess_inputs: Whether to show Stage 2
+- show_bess_inputs: Whether to display Stage 2
 - baseline_result: Stage 1 results
 - optimization_result: Stage 2 results
 - pv_config: PV configuration
@@ -385,7 +384,7 @@ if (st.session_state.stage >= 3 and
 # EMPTY STATE (If No Data Yet)
 # ===================================================================
 if st.session_state.baseline_result is None:
-    st.info("👆 Configure your solar park parameters above and click 'Calculate PV Baseline' to begin.")
+    st.info("Configure solar park parameters above and initiate 'Calculate Baseline' to begin analysis.")
 
 
 # ===================================================================

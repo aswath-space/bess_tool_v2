@@ -1,31 +1,31 @@
 """
-Stage 2: Battery Solution Component
-====================================
+Stage 2: Battery Integration Analysis Component
+================================================
 
-This component implements "The Upsell" stage of the user journey.
-It shows the INCREMENTAL value of adding battery storage to the PV system.
+This component implements the battery optimization stage of the user journey.
+It quantifies the incremental value of adding battery storage to the PV system.
 
 Purpose:
 --------
-Demonstrate that battery storage can recover the cannibalization losses
-shown in Stage 1 AND generate additional arbitrage revenue. This is the
-key "value proposition" that convinces investors.
+Demonstrate that battery storage can recover cannibalization losses
+identified in Stage 1 and generate additional arbitrage revenue.
+This provides the quantitative basis for investment evaluation.
 
 Key Outputs:
 ------------
 1. Value Bridge Waterfall Chart (Base PV + Arbitrage + Recovery)
 2. Optimized battery dispatch schedule
-3. Operations timeline showing when battery charges/discharges
+3. Operations timeline showing charge/discharge patterns
 4. Battery utilization metrics
 
 User Flow:
 ----------
-1. System suggests smart defaults (40% of PV capacity, 4h duration)
-2. User can accept defaults or customize battery sizing
-3. User can expand "More Options" to see conservative/aggressive sizing
-4. Click "Optimize with Battery" to run LP optimization
-5. See value bridge showing revenue breakdown
-6. Move to Stage 3 for investment decision
+1. System suggests recommended sizing (40% of PV capacity, 4h duration)
+2. User can accept recommendations or customize battery sizing
+3. User can expand advanced options for alternative sizing strategies
+4. Initiate MILP optimization for battery dispatch
+5. Review value bridge showing revenue breakdown
+6. Proceed to Stage 3 for investment analysis
 
 Author: Aswath
 Date: 2025-12-11
@@ -114,9 +114,9 @@ def render_stage2_inputs(pv_capacity_mw):
     with st.expander("Configure Battery Parameters", expanded=True):
         # Quick defaults button vs manual configuration
         use_defaults = st.checkbox(
-            "Use Smart Defaults (Recommended)",
+            "Use Recommended Configuration",
             value=True,
-            help="Use the recommended sizing from above"
+            help="Apply the recommended sizing parameters"
         )
         
         if use_defaults:
@@ -178,7 +178,7 @@ def render_stage2_inputs(pv_capacity_mw):
                 )
                 
                 # Add comprehensive explanation
-                with st.expander("🤔 What does battery duration mean?"):
+                with st.expander("Understanding Battery Duration"):
                     st.markdown(f"""
                     **Battery Duration** is the time your battery can discharge at **full power** continuously.
                     
@@ -244,7 +244,7 @@ def render_stage2_inputs(pv_capacity_mw):
     # ===================================================================
     # MORE OPTIONS (Collapsible)
     # ===================================================================
-    with st.expander("🔧 More Sizing Options (Conservative / Aggressive)"):
+    with st.expander("Alternative Sizing Strategies (Conservative / Aggressive)"):
         st.caption("Compare different sizing strategies")
         
         # Get all three sizing options
@@ -277,18 +277,15 @@ def render_stage2_inputs(pv_capacity_mw):
     # ===================================================================
     # OPTIMIZE BUTTON
     # ===================================================================
-    # ===================================================================
-    # OPTIMIZE BUTTON
-    # ===================================================================
     st.markdown("<div style='height: 1rem;'></div>", unsafe_allow_html=True)
     
     col1, col2, col3 = st.columns([1, 1, 1]) # Equal columns to center
     with col2:
         optimize_button = st.button(
-            "⚡ Optimize with Battery",
+            "Run Optimization",
             type="primary",
             use_container_width=True,
-            help="Run LP optimization to find optimal battery dispatch"
+            help="Execute MILP optimization to determine optimal battery dispatch"
         )
     
     # ===================================================================
@@ -372,8 +369,8 @@ def render_stage2_results(optimization_result, baseline_result, analysis_start_d
     st.markdown("### 📊 Value Bridge: Where Does the Revenue Come From?")
     
     st.caption("""
-    This waterfall chart breaks down how battery storage increases your revenue.
-    Each bar shows a different revenue source.
+    This waterfall chart illustrates the incremental revenue contribution from battery storage integration.
+    Each segment represents a distinct value stream.
     """)
 
     render_value_bridge_waterfall(

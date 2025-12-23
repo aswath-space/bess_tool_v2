@@ -2,30 +2,30 @@
 Stage 1: PV Baseline Component
 ===============================
 
-This component implements "The Anchor" stage of the user journey.
+This component implements the baseline analysis stage of the user journey.
 It collects PV configuration inputs and displays the baseline revenue
-that a PV-only system would generate WITHOUT battery storage.
+that a PV-only system would generate without battery storage.
 
 Purpose:
 --------
-Establish the baseline so users can later see the INCREMENTAL value
-of adding battery storage. This creates the "aha moment" when they
-realize how much revenue is being lost to cannibalization.
+Establish the reference baseline to quantify the incremental value
+proposition of battery storage integration. This demonstrates the
+revenue impact of market value deflation (cannibalization effect).
 
 Key Outputs:
 ------------
 1. Baseline Revenue (EUR/year)
 2. Cannibalization Analysis (Capture Rate %)
 3. Negative Price Exposure
-4. Recommendation whether to add battery
+4. Battery integration recommendation
 
 User Flow:
 ----------
 1. User enters location and PV configuration
-2. Clicks "Calculate PV Baseline"
-3. System shows baseline results and cannibalization chart
-4. If capture rate < 70%, highlight battery recommendation
-5. "Add Battery Storage" button appears to move to Stage 2
+2. Initiates baseline calculation
+3. System displays baseline results and cannibalization visualization
+4. If capture rate < 70%, battery integration is recommended
+5. Option to proceed to battery analysis stage
 
 Author: Aswath
 Date: 2025-12-11
@@ -240,13 +240,7 @@ def render_stage1_results(baseline_result, config):
         Original PV configuration for reference
     """
     
-    # ===================================================================
-    # SUCCESS MESSAGE
-    # ===================================================================
-    # ===================================================================
-    # SUCCESS MESSAGE - Removed
-    # ===================================================================
-    # st.success("✅ PV Baseline Calculated Successfully!")
+    # Success message removed for cleaner UX
     
     # ===================================================================
     # KEY METRICS
@@ -393,12 +387,12 @@ Solar concentration during low-price hours is causing a <strong>capture rate ero
     if recommendation['recommend']:
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
-            if st.button("⚡ Analyze Battery Integration", type="primary", use_container_width=True):
+            if st.button("Proceed to Battery Analysis", type="primary", use_container_width=True):
                 st.session_state.show_bess_inputs = True
                 st.session_state.stage = 2
                 st.rerun()
     else:
-        if st.button("➕ Explore Battery Storage anyway"):
+        if st.button("Explore Battery Storage Options"):
             st.session_state.show_bess_inputs = True
             st.session_state.stage = 2
             st.rerun()

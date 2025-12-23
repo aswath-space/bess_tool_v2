@@ -255,7 +255,7 @@ class BaselineService:
         
         # Determine if we should recommend battery
         recommend = capture_rate < threshold
-        
+
         # Determine severity
         if capture_rate < 0.60:
             severity = 'high'
@@ -263,30 +263,30 @@ class BaselineService:
             severity = 'medium'
         else:
             severity = 'low'
-        
+
         # Generate explanation
         if recommend:
             reason = f"""
-⚠️ **Battery Storage Recommended**
+**Battery Storage Integration Recommended**
 
-Your capture rate is {capture_rate:.1%}, which means your solar plant only captures {capture_rate:.1%} of the average market price due to solar's midday generation profile.
+The capture rate of {capture_rate:.1%} indicates that the solar asset captures only {capture_rate:.1%} of the average market price due to the midday generation profile.
 
 **Annual Impact:**
 - Cannibalization Loss: €{cannibalization_loss:,.0f}/year
-- Negative Price Hours: {negative_price_hours} hours/year
+- Negative Price Exposure: {negative_price_hours} hours/year
 
-**Battery Solution:**
-Adding battery storage can recover most of this loss by:
-1. Shifting solar generation to high-price hours (arbitrage)
-2. Avoiding negative price exposure (curtailment prevention)
+**Battery Integration Benefits:**
+Battery storage can recover a significant portion of this loss through:
+1. Time-shifting generation to high-price periods (arbitrage)
+2. Mitigating negative price exposure (curtailment prevention)
 3. Capturing additional arbitrage opportunities
             """
         else:
             reason = f"""
-✅ **Good Capture Rate**
+**Capture Rate Within Acceptable Range**
 
-Your capture rate is {capture_rate:.1%}, which is relatively healthy.
-However, battery storage may still provide value through arbitrage 
+The capture rate of {capture_rate:.1%} is within a healthy range.
+Battery storage may still provide incremental value through arbitrage
 and negative price mitigation.
             """
         
