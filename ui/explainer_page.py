@@ -18,7 +18,7 @@ def render_explainer_page():
     
     st.title("📚 Theory & Concepts")
     st.markdown("""
-    Understanding the economic and technical foundations behind PV-BESS optimization.
+    This section provides the theoretical foundation for understanding PV-BESS optimization methodology.
     """)
     
     # Create tabs for different sections
@@ -154,9 +154,9 @@ def render_cannibalization_theory():
     st.plotly_chart(fig, use_container_width=True)
     
     st.caption("""
-    **Notice:** Solar generates most during hours 10-16, but this is exactly when
-    prices are lowest due to  oversupply. Battery storage shifts this energy to
-    high-price evening hours (17-21).
+    **Note:** Solar generation peaks during hours 10-16, coinciding with the lowest
+    price periods due to supply saturation. Battery storage enables time-shifting
+    of this energy to higher-value evening periods (17-21).
     """)
 
 
@@ -176,27 +176,27 @@ def render_battery_economics():
     with col1:
         st.markdown("""
         #### 1. Energy Arbitrage
-        
-        **Buy low, sell high**
-        
-        - Charge during low-price hours
-        - Discharge during high-price hours
+
+        **Price differential exploitation**
+
+        - Charge during low-price periods
+        - Discharge during high-price periods
         - Profit = Price Spread × Energy × Efficiency
-        
+
         **Example:**
-        - Charge at €30/MWh (midnight)
+        - Charge at €30/MWh (overnight)
         - Discharge at €120/MWh (evening peak)
         - Spread: €90/MWh
-        - With 90% efficiency: €81/MWh profit
-        
+        - Net profit at 90% efficiency: €81/MWh
+
         #### 2. Negative Price Mitigation
-        
-        **Avoid paying to export**
-        
-        - Charge when prices go negative
-        - Get paid to charge (negative price)
-        - Discharge later for positive revenue
-        - Double benefit: avoid loss + earn revenue
+
+        **Avoidance of export penalties**
+
+        - Charge during negative price periods
+        - Revenue generated from charging (negative price)
+        - Discharge subsequently at positive prices
+        - Combined benefit: loss avoidance and revenue generation
         """)
     
     with col2:

@@ -1,33 +1,33 @@
 """
-Stage 3: Investment Decision Component
+Stage 3: Investment Analysis Component
 =======================================
 
-This component implements "The Decision" stage of the user journey.
-It provides financial rigor with IRR, NPV, and payback period calculations,
-plus real-time sensitivity analysis.
+This component implements the financial analysis stage of the user journey.
+It provides rigorous financial metrics including IRR, NPV, and payback period,
+with interactive sensitivity analysis capabilities.
 
 Purpose:
 --------
-Give investors the financial metrics they need to make an informed decision.
-The real-time sensitivity sliders allow exploration of "what-if" scenarios
-without re-running the optimization.
+Provide investors with comprehensive financial metrics for informed decision-making.
+The interactive sensitivity analysis enables scenario exploration without
+re-executing the optimization.
 
 Key Outputs:
 ------------
 1. IRR (Internal Rate of Return) for greenfield and brownfield scenarios
 2. NPV (Net Present Value) at user-defined discount rate
 3. Payback Period (simple and discounted)
-4. Real-time sensitivity analysis with sliders
-5. IRR sensitivity charts (vs CAPEX, vs Duration)
+4. Interactive sensitivity analysis
+5. IRR sensitivity curves (vs CAPEX, vs Duration)
 
 User Flow:
 ----------
-1. Select scenario (Greenfield or Brownfield)
-2. Set project parameters (lifetime, discount rate)
-3. View financial metrics
-4. Adjust sensitivity sliders to see real-time IRR changes
-5. Explore advanced settings (degradation rates)
-6. Make investment decision
+1. Review scenario configuration (Greenfield or Brownfield)
+2. Adjust project parameters (lifetime, discount rate)
+3. Review financial metrics
+4. Utilize sensitivity analysis for scenario exploration
+5. Configure advanced parameters (degradation rates)
+6. Evaluate investment decision
 
 Author: Aswath
 Date: 2025-12-11
@@ -67,10 +67,6 @@ def render_stage3(
     # ===================================================================
     # STAGE HEADER
     # ===================================================================
-    # ===================================================================
-    # STAGE HEADER
-    # ===================================================================
-    # No icon, standard header style as requested
     st.markdown("### Financial Feasibility Analysis")
     st.markdown(get_tooltip_css(), unsafe_allow_html=True)
     
@@ -207,17 +203,13 @@ def render_stage3(
     )
     
     # Store in session state for sensitivity analysis
-    # Store base config for sensitivity reference
-    if 'base_irr_result' not in st.session_state:
-        st.session_state.base_irr_result = irr_result
-    else:
-        st.session_state.base_irr_result = irr_result
+    st.session_state.base_irr_result = irr_result
     
     # ===================================================================
     # DISPLAY FINANCIAL METRICS
     # ===================================================================
     st.markdown("---")
-    st.markdown("### 💼 Key Performance Indicators")
+    st.markdown("### Key Performance Indicators")
     
     col1, col2, col3 = st.columns(3)
     
@@ -271,14 +263,14 @@ def render_stage3(
     st.markdown("<div style='margin-top: 1rem;'></div>", unsafe_allow_html=True)
     st.markdown(f"""
     <div style="
-        background-color: rgba(59, 130, 246, 0.05); 
-        padding: 1rem; 
-        border-radius: 8px; 
+        background-color: rgba(59, 130, 246, 0.05);
+        padding: 1rem;
+        border-radius: 8px;
         border: 1px solid rgba(59, 130, 246, 0.2);
         margin-bottom: 1rem;
     ">
         <div style="font-size: 1rem; color: var(--text-main); line-height: 1.6;">
-            <strong>💰 Capital Structure</strong>
+            <strong>Capital Structure</strong>
             <ul style="margin-top: 0.5rem; margin-bottom: 0px; padding-left: 1.5rem;">
                 <li><strong>Total CAPEX Requirement:</strong> {html.escape(str(irr_result['capex_description']))}</li>
                 <li><strong>Year 1 Recurring Revenue:</strong> €{irr_result['first_year_revenue_eur']:,.0f}</li>
@@ -291,11 +283,11 @@ def render_stage3(
     # REAL-TIME SENSITIVITY ANALYSIS
     # ===================================================================
     st.markdown("---")
-    st.markdown("### 🎚️ Dynamic Sensitivity Analysis")
-    
+    st.markdown("### Sensitivity Analysis")
+
     st.caption("""
-    Analyze the elasticity of project returns against key CAPEX and sizing variables.
-    The charts below visualize the **sensitivity curves** for your current configuration.
+    Evaluate the sensitivity of project returns to variations in capital expenditure and system sizing parameters.
+    The charts below illustrate the response curves for your current configuration.
     """)
     
     # Create two columns for sensitivity sliders
@@ -369,7 +361,7 @@ def render_stage3(
     irr_change = adjusted_irr - irr_pct if (adjusted_irr and irr_pct) else 0
 
     if (capex_sensitivity != current_capex or abs(duration_sensitivity - base_duration) > 0.01):
-        st.markdown("#### 📊 Adjusted Scenario Metrics")
+        st.markdown("#### Adjusted Scenario Metrics")
         col1, col2, col3 = st.columns(3)
         
         with col1:
@@ -397,7 +389,7 @@ def render_stage3(
     # SENSITIVITY CHARTS
     # ===================================================================
     st.markdown("---")
-    st.markdown("### 📉 Sensitivity Curves")
+    st.markdown("### IRR Sensitivity Curves")
     
     render_sensitivity_charts(
         base_irr_result=irr_result, # The original result (reference)
@@ -450,7 +442,7 @@ def render_sensitivity_charts(
     # Line 2: @ Slider Duration
     # ===================================================================
     with col1:
-        st.markdown("#### IRR vs. Battery Cost")
+        st.markdown("#### IRR Response to Battery CAPEX Variation")
         
         vals_x = np.linspace(150, 450, 20)
         
@@ -502,10 +494,10 @@ def render_sensitivity_charts(
             line=dict(color='#3b82f6', width=3)
         ))
         
-        # Current Point
+        # Current configuration marker
         fig1.add_trace(go.Scatter(
             x=[current_capex], y=[current_irr_result['irr_percent']],
-            mode='markers', name='You are here',
+            mode='markers', name='Current Configuration',
             marker=dict(size=12, color='#ef4444', line=dict(width=2, color='white'))
         ))
         
@@ -522,7 +514,7 @@ def render_sensitivity_charts(
     # Line 2: @ Slider CAPEX
     # ===================================================================
     with col2:
-        st.markdown("#### IRR vs. Duration")
+        st.markdown("#### IRR Response to Duration Variation")
         
         vals_x = np.linspace(1, 8, 20)
         
@@ -572,10 +564,10 @@ def render_sensitivity_charts(
             line=dict(color='#10b981', width=3)
         ))
         
-        # Current Point
+        # Current configuration marker
         fig2.add_trace(go.Scatter(
             x=[current_duration], y=[current_irr_result['irr_percent']],
-            mode='markers', name='You are here',
+            mode='markers', name='Current Configuration',
             marker=dict(size=12, color='#ef4444', line=dict(width=2, color='white'))
         ))
         
